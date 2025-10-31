@@ -1,0 +1,210 @@
+import cors from 'cors'
+import dotenv from 'dotenv'
+import express from 'express'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
+import { setupRoutes } from './routes'
+import ocrRoutes from './routes/ocrRoutes'
+import { enhancedStockPriceService as stockPriceService } from './services/enhancedStockPriceService'
+
+dotenv.config()
+
+// Configuration for real vs simulated prices
+const USE_REAL_PRICES = process.env.USE_REAL_PRICES !== 'false' // Default to true
+
+const app = express()
+const server = createServer(app)
+const io = new Server(server, {
+    cors: {
+        origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        methods: ["GET", "POST"]
+    }
+})
+
+const PORT = process.env.PORT || 4000
+
+// Middleware
+app.use(cors({
+    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    credentials: true
+}))
+app.use(express.json())
+
+app.post('/api/validate-symbol', async (req, res) => {
+    const { symbol } = req.body
+
+    if (!symbol || typeof symbol !== 'string') {
+        return res.status(400).json({
+            valid: false,
+            error: 'Symbol is required and must be a string'
+        })
+    }
+
+    const cleanSymbol = symbol.trim().toUpperCase()
+
+    // Enhanced format validation for international exchanges
+    const isValidFormat = /^[A-Z]{1,8}(\.[A-Z]{1,4})?$/.test(cleanSymbol)
+    if (!isValidFormat) {
+        return res.status(400).json({
+            valid: false,
+            error: 'Symbol must be 1-8 letters, optionally followed by exchange suffix (e.g., TD.TO, AAPL, BP.L)'
+        })
+    }
+
+    try {
+        // Use enhanced service with multi-provider support
+        const validation = await stockPriceService.validateSymbol(cleanSymbol)
+
+        if (validation.valid) {
+            return res.json({
+                valid: true,
+                symbol: cleanSymbol,
+                name: validation.name,
+                currentPrice: validation.price,
+                provider: validation.provider
+            })
+        } else {
+            return res.status(400).json({
+                valid: false,
+                error: `Symbol '${cleanSymbol}' not found or invalid`
+            })
+        }
+    } catch (error) {
+        console.error(`Symbol validation failed for ${cleanSymbol}:`, error)
+        return res.status(400).json({
+            valid: false,
+            error: `Unable to validate symbol '${cleanSymbol}' - symbol may not exist`
+        })
+    }
+})
+
+// Provider health and statistics endpoint
+app.get('/api/provider-status', (req, res) => {
+    try {
+        const stats = stockPriceService.getProviderStats()
+        res.json({
+            success: true,
+            stats: stats,
+            timestamp: new Date().toISOString()
+        })
+    } catch (error) {
+        console.error('Provider status error:', error)
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get provider status'
+        })
+    }
+})
+
+// Search symbols endpoint
+app.get('/api/search-symbols', async (req, res) => {
+    const { q } = req.query
+
+    if (!q || typeof q !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: 'Query parameter "q" is required'
+        })
+    }
+
+    try {
+        const results = await stockPriceService.searchSymbols(q)
+        return res.json({
+            success: true,
+            query: q,
+            results: results,
+            count: results.length
+        })
+    } catch (error) {
+        console.error(`Symbol search failed for "${q}":`, error)
+        return res.status(500).json({
+            success: false,
+            error: 'Symbol search failed'
+        })
+    }
+})
+
+// Refresh specific stock endpoint
+app.post('/api/refresh-stock', async (req, res) => {
+    const { symbol } = req.body
+
+    if (!symbol || typeof symbol !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: 'Symbol is required'
+        })
+    }
+
+    try {
+        const refreshedStock = await stockPriceService.refreshStock(symbol.toUpperCase())
+
+        if (refreshedStock) {
+            return res.json({
+                success: true,
+                stock: refreshedStock
+            })
+        } else {
+            return res.status(404).json({
+                success: false,
+                error: `Unable to refresh stock data for ${symbol}`
+            })
+        }
+    } catch (error) {
+        console.error(`Stock refresh failed for ${symbol}:`, error)
+        return res.status(500).json({
+            success: false,
+            error: 'Stock refresh failed'
+        })
+    }
+})// OCR routes for image processing
+app.use('/api', ocrRoutes)
+
+// Routes
+setupRoutes(app)
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+    console.log(`Client connected: ${socket.id}`)
+
+    socket.emit('connected', { message: 'Connected to Stock Monitor Backend' })
+
+    // Handle equity subscriptions
+    socket.on('subscribeEquities', async (data: { symbols: string[] }) => {
+        console.log(`Client ${socket.id} subscribing to equities:`, data.symbols)
+
+        // Subscribe to equities with callback to emit updates to this socket
+        stockPriceService.subscribeToEquities(data.symbols, (stockData) => {
+            socket.emit('stockUpdate', stockData)
+        })
+    })
+
+    socket.on('unsubscribeEquities', (data: { symbols: string[] }) => {
+        console.log(`Client ${socket.id} unsubscribing from equities:`, data.symbols)
+        stockPriceService.unsubscribeFromEquities(data.symbols)
+    })
+
+    socket.on('disconnect', () => {
+        console.log(`Client disconnected: ${socket.id}`)
+    })
+})
+
+// Start stock price service with WebSocket broadcasting
+stockPriceService.setRealPricesMode(USE_REAL_PRICES)
+stockPriceService.startPriceUpdates((stockData) => {
+    io.emit('stockUpdate', stockData)
+})
+
+// Start equity updates service
+stockPriceService.startEquityUpdates()
+
+server.listen(PORT, () => {
+    console.log(`🚀 Stock Monitor Backend running on port ${PORT}`)
+    console.log(`📊 WebSocket server ready for real-time updates`)
+    console.log(`🔗 Frontend should connect to: http://localhost:${PORT}`)
+    console.log(`💰 Enhanced Multi-Provider System: ${USE_REAL_PRICES ? 'REAL PRICES from Yahoo Finance + fallbacks' : 'SIMULATED PRICES'}`)
+    if (USE_REAL_PRICES) {
+        console.log(`📡 Real-time data with automatic provider fallback`)
+        console.log(`🔍 Provider health monitoring enabled`)
+        console.log(`📈 Enhanced endpoints: /api/provider-status, /api/search-symbols, /api/refresh-stock`)
+    }
+})

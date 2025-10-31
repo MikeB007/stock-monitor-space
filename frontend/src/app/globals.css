@@ -1,0 +1,300 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-blue-50 to-indigo-100;
+  }
+}
+
+@layer components {
+  .price-positive {
+    @apply text-stock-green;
+  }
+
+  .price-negative {
+    @apply text-stock-red;
+  }
+
+  .price-card {
+    @apply bg-white rounded-lg shadow-md p-4 border border-gray-200 hover:shadow-lg transition-shadow;
+  }
+
+  .watchlist-item {
+    @apply flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50;
+  }
+
+  /* Light Professional Asset Table */
+  .asset-table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    background: white !important;
+  }
+
+  .asset-table th {
+    border: 1px solid #d1d5db !important;
+    border-bottom: 2px solid #9ca3af !important;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9) !important;
+    color: #374151 !important;
+    font-weight: 600 !important;
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    text-align: left !important;
+    height: 24px !important;
+  }
+
+  .asset-table td {
+    border: 1px solid #e5e7eb !important;
+    background: white !important;
+    padding: 4px 8px !important;
+    transition: all 0.2s ease !important;
+    font-size: 11px !important;
+    height: 32px !important;
+    vertical-align: middle !important;
+  }
+
+  .asset-table tr:nth-child(even) td {
+    background: #fafbfc !important;
+  }
+
+  .asset-table tr:hover td {
+    background: #f0f9ff !important;
+    border-color: #bfdbfe !important;
+  }
+
+  .asset-table .asset-symbol {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    font-weight: 500 !important;
+    color: #4b5563 !important;
+    font-size: 9px !important;
+  }
+
+  .asset-table .asset-price {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    color: #1f2937 !important;
+  }
+
+  .asset-table .asset-volume {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    color: #6b7280 !important;
+    font-size: 10px !important;
+  }
+
+  .asset-table .asset-market-cap {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    color: #6b7280 !important;
+    font-weight: 500 !important;
+    font-size: 10px !important;
+  }
+
+  /* Light Change Indicators */
+  .change-positive-light {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-weight: 500 !important;
+    font-size: 9px !important;
+  }
+
+  .change-negative-light {
+    background: #fef2f2 !important;
+    color: #991b1b !important;
+    border: 1px solid #fecaca !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-weight: 500 !important;
+    font-size: 9px !important;
+  }
+
+  .status-live-light {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-weight: 500 !important;
+    font-size: 9px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  .asset-icon {
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 600 !important;
+    font-size: 10px !important;
+    color: white !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    margin: 0 auto !important;
+  }
+
+  /* Icon Column Styling */
+  .asset-table th:first-child,
+  .asset-table td:first-child {
+    width: 40px !important;
+    max-width: 40px !important;
+    padding: 4px !important;
+    text-align: center !important;
+  }
+
+  /* Interval Performance Columns */
+  .interval-cell {
+    text-align: center !important;
+    vertical-align: middle !important;
+    width: 35px !important;
+    padding: 2px !important;
+  }
+
+  .interval-positive {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    border: 1px solid #bbf7d0 !important;
+    padding: 1px 3px !important;
+    border-radius: 2px !important;
+    font-weight: 500 !important;
+    font-size: 8px !important;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    display: inline-block !important;
+    min-width: 25px !important;
+  }
+
+  .interval-negative {
+    background: #fef2f2 !important;
+    color: #991b1b !important;
+    border: 1px solid #fecaca !important;
+    padding: 1px 3px !important;
+    border-radius: 2px !important;
+    font-weight: 500 !important;
+    font-size: 8px !important;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    display: inline-block !important;
+    min-width: 25px !important;
+  }
+
+  .interval-neutral {
+    background: #f9fafb !important;
+    color: #6b7280 !important;
+    border: 1px solid #e5e7eb !important;
+    padding: 1px 3px !important;
+    border-radius: 2px !important;
+    font-weight: 500 !important;
+    font-size: 8px !important;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+    display: inline-block !important;
+    min-width: 25px !important;
+  }
+
+  /* Excel-style table borders */
+  .excel-table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border: 4px solid #1f2937 !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .excel-table th {
+    border: 3px solid #1f2937 !important;
+    border-bottom: 4px solid #111827 !important;
+    background: linear-gradient(135deg, #1f2937, #111827) !important;
+    color: white !important;
+    font-weight: 900 !important;
+    font-size: 16px !important;
+    padding: 16px 20px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .excel-table td {
+    border: 2px solid #4b5563 !important;
+    border-right: 3px solid #374151 !important;
+    border-bottom: 3px solid #374151 !important;
+    background: white !important;
+    padding: 20px !important;
+    position: relative !important;
+  }
+
+  .excel-table td::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #9ca3af;
+    opacity: 0.7;
+  }
+
+  .excel-table tr:nth-child(even) td {
+    background: #f8fafc !important;
+  }
+
+  .excel-table tr:hover td {
+    background: #dbeafe !important;
+    box-shadow: inset 0 0 0 2px #3b82f6 !important;
+  }
+
+  .excel-table td:first-child {
+    border-left: 4px solid #1f2937 !important;
+  }
+
+  .excel-table td:last-child {
+    border-right: 4px solid #1f2937 !important;
+  }
+
+  .excel-table tbody tr:last-child td {
+    border-bottom: 4px solid #1f2937 !important;
+  }
+
+  /* Time interval styling */
+  .time-interval-active {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: white !important;
+    border: 4px solid #b45309 !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 12px 30px rgba(245, 158, 11, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    font-weight: 900 !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .time-interval-inactive {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb) !important;
+    border: 3px solid #9ca3af !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+  }
+
+  /* Price change colors */
+  .price-change-positive {
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    color: white !important;
+    border: 3px solid #15803d !important;
+    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.2) !important;
+    font-weight: 900 !important;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .price-change-negative {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: white !important;
+    border: 3px solid #b91c1c !important;
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.2) !important;
+    font-weight: 900 !important;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4) !important;
+  }
+}

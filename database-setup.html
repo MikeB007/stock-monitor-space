@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Monitor Database Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .copy-btn:hover {
+            background: #3182ce;
+        }
+
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e6fffa;
+            border-left: 4px solid #38b2ac;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #f0fff4;
+            border-left-color: #48bb78;
+            color: #2f855a;
+        }
+
+        .warning {
+            background: #fffaf0;
+            border-left-color: #ed8936;
+            color: #c05621;
+        }
+
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .config-table th,
+        .config-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .config-table th {
+            background: #edf2f7;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🗄️ Stock Monitor Database Setup</h1>
+
+        <div class="step">
+            <h3>📋 Database Configuration</h3>
+            <table class="config-table">
+                <tr>
+                    <th>Setting</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Database Name</td>
+                    <td><strong>mystocks</strong></td>
+                </tr>
+                <tr>
+                    <td>Username</td>
+                    <td><strong>admin</strong></td>
+                </tr>
+                <tr>
+                    <td>Password</td>
+                    <td><strong>Ilms2009</strong></td>
+                </tr>
+                <tr>
+                    <td>Host</td>
+                    <td><strong>localhost</strong></td>
+                </tr>
+                <tr>
+                    <td>Port</td>
+                    <td><strong>3306</strong></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="step">
+            <h3>🚀 Setup Instructions</h3>
+            <ol>
+                <li>Open <strong>MySQL Workbench</strong> or <strong>MySQL Command Line Client</strong></li>
+                <li>Connect to your MySQL server as <strong>root</strong></li>
+                <li>Copy and paste the SQL commands below</li>
+                <li>Restart your Stock Monitor backend</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>📝 SQL Commands to Execute</h3>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyToClipboard('sql-commands')">Copy SQL</button>
+                <div id="sql-commands">-- Create database
+                    CREATE DATABASE IF NOT EXISTS mystocks;
+
+                    -- Create user if it doesn't exist
+                    CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED BY 'Ilms2009';
+
+                    -- Grant all privileges on the mystocks database to admin user
+                    GRANT ALL PRIVILEGES ON mystocks.* TO 'admin'@'localhost';
+
+                    -- Flush privileges to apply changes
+                    FLUSH PRIVILEGES;
+
+                    -- Use the mystocks database
+                    USE mystocks;
+
+                    -- Verify setup
+                    SELECT 'Database mystocks ready for Stock Monitor!' as Status;</div>
+            </div>
+        </div>
+
+        <div class="step success">
+            <h3>✅ Expected Success Messages</h3>
+            <p>After setting up the database and restarting the backend, you should see:</p>
+            <div class="code-block">
+                🗄️ Connecting to MySQL database...
+                ✅ Database connection successful
+                ✅ Tables initialized: portfolio_stocks, stock_prices_history
+                ✅ Default portfolio stocks added
+                ✅ Database initialized successfully!
+                🗄️ MySQL Portfolio Management: Enabled
+            </div>
+        </div>
+
+        <div class="step warning">
+            <h3>⚠️ If You See "Access Denied" Errors</h3>
+            <p>The backend is currently showing "Access denied" errors because the database user hasn't been created
+                yet. This is normal and will be fixed once you run the SQL commands above.</p>
+        </div>
+
+        <div class="step">
+            <h3>🔄 After Database Setup</h3>
+            <ol>
+                <li>Stop the backend server (Ctrl+C in the terminal)</li>
+                <li>Run: <code>npm run dev</code></li>
+                <li>Check for success messages in the console</li>
+                <li>Test the portfolio API at: <code>http://localhost:4000/api/portfolio</code></li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = element.parentElement.querySelector('.copy-btn');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = '#48bb78';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#4299e1';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -134,13 +134,14 @@ function StockMonitorComponent() {
 
   // Equity state management
   const [equityData, setEquityData] = useState<Record<string, EquityData>>({})
-  const [subscribedEquities, setSubscribedEquities] = useState<string[]>(['AAPL', 'SMR', 'IONX', 'IBM'])
+  const [subscribedEquities, setSubscribedEquities] = useState<string[]>([])
   const [newEquity, setNewEquity] = useState<string>('')
   const [isValidating, setIsValidating] = useState<boolean>(false)
   const [validationError, setValidationError] = useState<string>('')
   const [equityPriceHistory, setEquityPriceHistory] = useState<Record<string, PricePoint[]>>({})
   const [useRealPrices, setUseRealPrices] = useState(true)
   const [socket, setSocket] = useState<any>(null)
+  const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(true)
 
   // OCR state management
   const [isProcessingOCR, setIsProcessingOCR] = useState<boolean>(false)
@@ -157,7 +158,54 @@ function StockMonitorComponent() {
     setIsClient(true)
   }, [])
 
+  // Load portfolio from database
   useEffect(() => {
+    const loadPortfolio = async () => {
+      try {
+        setIsLoadingPortfolio(true)
+        console.log('🔄 Loading portfolio from database...')
+
+        const response = await fetch('http://localhost:4000/api/portfolio')
+        console.log('📡 Portfolio API response status:', response.status)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('📊 Portfolio API response data:', data)
+          const symbols = data.data.map((stock: any) => stock.symbol)
+          console.log('✅ Loaded portfolio from database:', symbols)
+
+          // Set the actual portfolio symbols - even if empty array
+          setSubscribedEquities(symbols)
+
+          if (symbols.length === 0) {
+            console.log('📝 Portfolio is empty - no stocks to track')
+          }
+        } else {
+          console.error('❌ Failed to load portfolio:', response.status, response.statusText)
+          // Set to empty array if API fails - no fallback defaults
+          console.log('🔄 Setting empty portfolio due to API failure')
+          setSubscribedEquities([])
+        }
+      } catch (error) {
+        console.error('❌ Error loading portfolio:', error)
+        // Set to empty array if error occurs - no fallback defaults
+        console.log('🔄 Setting empty portfolio due to error')
+        setSubscribedEquities([])
+      } finally {
+        setIsLoadingPortfolio(false)
+        console.log('✅ Portfolio loading completed')
+      }
+    }
+
+    loadPortfolio()
+  }, [])
+
+  useEffect(() => {
+    // Only connect WebSocket after portfolio is loaded
+    if (isLoadingPortfolio || subscribedEquities.length === 0) {
+      return
+    }
+
     // Connect to WebSocket
     const socketConnection = io('http://localhost:4000')
     setSocket(socketConnection)
@@ -216,7 +264,7 @@ function StockMonitorComponent() {
     return () => {
       socketConnection.disconnect()
     }
-  }, [subscribedEquities])
+  }, [subscribedEquities, isLoadingPortfolio])
 
   const formatPrice = (price: number) => {
     return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -414,6 +462,40 @@ function StockMonitorComponent() {
 
       // All symbols are valid, add them
       const validSymbols = validResults.map(r => r.symbol)
+
+      // Add stocks to database
+      try {
+        const addPromises = validSymbols.map(async (symbol) => {
+          console.log(`🔍 Adding ${symbol} to portfolio via API...`)
+          const response = await fetch('http://localhost:4000/api/portfolio', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              symbol // Only send the symbol - backend will validate and fetch metadata
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.error(`❌ Failed to add ${symbol}:`, errorData)
+            throw new Error(errorData.error || `Failed to add ${symbol}`)
+          }
+
+          const result = await response.json()
+          console.log(`✅ Successfully added ${symbol} to database:`, result)
+          return result
+        })
+
+        await Promise.all(addPromises)
+        console.log('✅ All stocks saved to database:', validSymbols)
+      } catch (error) {
+        console.error('❌ Error saving to database:', error)
+        setValidationError(`Database error: ${error.message}`)
+        return // Don't continue if database save failed
+      }
+
       const updatedEquities = [...subscribedEquities, ...validSymbols]
       setSubscribedEquities(updatedEquities)
       setNewEquity('')
@@ -436,7 +518,22 @@ function StockMonitorComponent() {
     }
   }
 
-  const removeEquity = (symbol: string) => {
+  const removeEquity = async (symbol: string) => {
+    // Remove from database first
+    try {
+      const response = await fetch(`http://localhost:4000/api/portfolio/${symbol}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        console.log('Successfully removed from database:', symbol)
+      } else {
+        console.error('Failed to remove from database:', symbol)
+      }
+    } catch (error) {
+      console.error('Error removing from database:', error)
+      // Continue anyway since local state still works
+    }
+
     const updatedEquities = subscribedEquities.filter(eq => eq !== symbol)
     setSubscribedEquities(updatedEquities)
 
@@ -524,6 +621,28 @@ function StockMonitorComponent() {
       return
     }
 
+    // Add to database
+    try {
+      const response = await fetch('http://localhost:4000/api/portfolio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol: stock.symbol,
+          description: `Added via OCR: ${stock.description || ''}`,
+          country: stock.country || 'US',
+          market: stock.market || 'NASDAQ'
+        }),
+      })
+      if (response.ok) {
+        console.log('Successfully saved to database:', stock.symbol)
+      }
+    } catch (error) {
+      console.error('Error saving to database:', error)
+      // Continue anyway since local state still works
+    }
+
     // Add to portfolio
     const updatedEquities = [...subscribedEquities, stock.symbol]
     setSubscribedEquities(updatedEquities)
@@ -536,7 +655,7 @@ function StockMonitorComponent() {
     console.log(`Added ${stock.symbol} to portfolio from OCR`)
   }
 
-  const addAllValidStocksFromOCR = () => {
+  const addAllValidStocksFromOCR = async () => {
     if (!ocrResults || !ocrResults.extractedStocks) return
 
     const validStocks = ocrResults.extractedStocks.filter((stock: any) =>
@@ -546,6 +665,31 @@ function StockMonitorComponent() {
     if (validStocks.length === 0) {
       setValidationError('No new valid stocks to add')
       return
+    }
+
+    // Add all stocks to database
+    try {
+      const addPromises = validStocks.map(async (stock: any) => {
+        const response = await fetch('http://localhost:4000/api/portfolio', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            symbol: stock.symbol,
+            description: `Added via OCR: ${stock.description || ''}`,
+            country: stock.country || 'US',
+            market: stock.market || 'NASDAQ'
+          }),
+        })
+        return response.json()
+      })
+
+      await Promise.all(addPromises)
+      console.log('Successfully saved all OCR stocks to database')
+    } catch (error) {
+      console.error('Error saving OCR stocks to database:', error)
+      // Continue anyway since local state still works
     }
 
     const newSymbols = validStocks.map((stock: any) => stock.symbol)
@@ -726,7 +870,7 @@ function StockMonitorComponent() {
         <div className="flex items-center justify-between px-6 py-4 border-b-2 border-gray-300 bg-gradient-to-r from-blue-600 to-blue-700">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-white">
-              ₿ Bitcoin Monitor
+              🚀 Stock Monitor - HOT RELOAD ACTIVE! 🔥
             </h1>
             <div className={`flex items-center gap-2 px-3 py-1 rounded-md text-sm font-bold ${connected ? 'bg-green-500 text-white border-2 border-green-400' : 'bg-red-500 text-white border-2 border-red-400'}`}>
               <Activity className="w-3 h-3" />
@@ -1347,7 +1491,10 @@ function StockMonitorComponent() {
               <tr>
                 <td colSpan={31} className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
                   <div className="py-8 text-gray-500">
-                    No equities subscribed. Add securities using the input above.
+                    {isLoadingPortfolio
+                      ? 'Loading portfolio from database...'
+                      : 'No equities subscribed. Add securities using the input above.'
+                    }
                   </div>
                 </td>
               </tr>

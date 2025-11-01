@@ -1,6 +1,7 @@
 import * as cron from 'node-cron'
 import { StockQuote } from './dataProviders/BaseDataProvider'
 import { dataProviderManager } from './dataProviders/DataProviderManager'
+import { databaseService } from './databaseService'
 
 export interface StockData {
     symbol: string
@@ -194,7 +195,7 @@ class EnhancedStockPriceService {
             symbol = 'BTC'
         }
 
-        return {
+        const stockData = {
             symbol: symbol,
             name: quote.name,
             price: quote.price,
@@ -223,6 +224,22 @@ class EnhancedStockPriceService {
 
             marketState: quote.marketState,
             hasPrePostMarketData: quote.hasPrePostMarketData
+        }
+
+        // Record to database asynchronously
+        this.recordPriceToDatabase(stockData)
+
+        return stockData
+    }
+
+    private async recordPriceToDatabase(stockData: StockData) {
+        try {
+            // Only record real price data, not simulated
+            if (stockData.provider && !stockData.provider.includes('Simulated')) {
+                await databaseService.recordStockPrice(stockData)
+            }
+        } catch (error) {
+            console.error(`Failed to record price for ${stockData.symbol}:`, error)
         }
     }
 

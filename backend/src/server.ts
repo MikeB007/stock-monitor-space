@@ -5,6 +5,8 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { setupRoutes } from './routes'
 import ocrRoutes from './routes/ocrRoutes'
+import portfolioRoutes from './routes/portfolioRoutes'
+import { databaseService } from './services/databaseService'
 import { enhancedStockPriceService as stockPriceService } from './services/enhancedStockPriceService'
 
 dotenv.config()
@@ -159,6 +161,9 @@ app.post('/api/refresh-stock', async (req, res) => {
 })// OCR routes for image processing
 app.use('/api', ocrRoutes)
 
+// Portfolio routes for database management
+app.use('/api', portfolioRoutes)
+
 // Routes
 setupRoutes(app)
 
@@ -197,14 +202,34 @@ stockPriceService.startPriceUpdates((stockData) => {
 // Start equity updates service
 stockPriceService.startEquityUpdates()
 
-server.listen(PORT, () => {
-    console.log(`🚀 Stock Monitor Backend running on port ${PORT}`)
-    console.log(`📊 WebSocket server ready for real-time updates`)
-    console.log(`🔗 Frontend should connect to: http://localhost:${PORT}`)
-    console.log(`💰 Enhanced Multi-Provider System: ${USE_REAL_PRICES ? 'REAL PRICES from Yahoo Finance + fallbacks' : 'SIMULATED PRICES'}`)
-    if (USE_REAL_PRICES) {
-        console.log(`📡 Real-time data with automatic provider fallback`)
-        console.log(`🔍 Provider health monitoring enabled`)
-        console.log(`📈 Enhanced endpoints: /api/provider-status, /api/search-symbols, /api/refresh-stock`)
+// Initialize database service
+async function initializeDatabase() {
+    try {
+        await databaseService.initialize()
+        console.log('✅ Database initialized successfully')
+    } catch (error) {
+        console.error('❌ Database initialization failed:', error)
+        console.log('⚠️  Server will continue without database features')
     }
-})
+}
+
+// Start server with database initialization
+async function startServer() {
+    await initializeDatabase()
+
+    server.listen(PORT, () => {
+        console.log(`🚀 Stock Monitor Backend running on port ${PORT} - NODEMON HOT RELOAD ACTIVE! 🔥`)
+        console.log(`📊 WebSocket server ready for real-time updates`)
+        console.log(`🔗 Frontend should connect to: http://localhost:${PORT}`)
+        console.log(`💰 Enhanced Multi-Provider System: ${USE_REAL_PRICES ? 'REAL PRICES from Yahoo Finance + fallbacks' : 'SIMULATED PRICES'}`)
+        console.log(`🗄️  MySQL Portfolio Management: Enabled`)
+        if (USE_REAL_PRICES) {
+            console.log(`📡 Real-time data with automatic provider fallback`)
+            console.log(`🔍 Provider health monitoring enabled`)
+            console.log(`📈 Enhanced endpoints: /api/provider-status, /api/search-symbols, /api/refresh-stock`)
+            console.log(`💼 Portfolio endpoints: /api/portfolio (GET, POST, PUT, DELETE)`)
+        }
+    })
+}
+
+startServer().catch(console.error)

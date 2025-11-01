@@ -170,12 +170,18 @@ setupRoutes(app)
 // WebSocket connection handling
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`)
+    
+    // Track this client's subscribed equities for cleanup on disconnect
+    let clientEquities: string[] = []
 
     socket.emit('connected', { message: 'Connected to Stock Monitor Backend' })
 
     // Handle equity subscriptions
     socket.on('subscribeEquities', async (data: { symbols: string[] }) => {
         console.log(`Client ${socket.id} subscribing to equities:`, data.symbols)
+        
+        // Store client's equities for cleanup later
+        clientEquities = data.symbols
 
         // Subscribe to equities with callback to emit updates to this socket
         stockPriceService.subscribeToEquities(data.symbols, (stockData) => {
@@ -186,10 +192,20 @@ io.on('connection', (socket) => {
     socket.on('unsubscribeEquities', (data: { symbols: string[] }) => {
         console.log(`Client ${socket.id} unsubscribing from equities:`, data.symbols)
         stockPriceService.unsubscribeFromEquities(data.symbols)
+        
+        // Remove from client's tracked equities
+        clientEquities = clientEquities.filter(symbol => !data.symbols.includes(symbol))
     })
 
     socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`)
+        
+        // Clean up: unsubscribe all of this client's equities
+        if (clientEquities.length > 0) {
+            console.log(`🧹 Cleaning up subscriptions for disconnected client: ${clientEquities.join(', ')}`)
+            stockPriceService.unsubscribeFromEquities(clientEquities)
+            clientEquities = []
+        }
     })
 })
 

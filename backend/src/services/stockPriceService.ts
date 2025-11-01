@@ -26,7 +26,7 @@ class StockPriceService {
   private equityUpdateJob: any = null // Store the cron job reference
 
   constructor() {
-    this.initializeSampleStocks()
+    // Removed initializeSampleStocks() - stocks are now loaded only from database or client requests
     this.initializeBitcoinPrice()
   }
 
@@ -124,47 +124,7 @@ class StockPriceService {
     }
   }
 
-  private initializeSampleStocks() {
-    const sampleStocks = [
-      // Tech Giants
-      { symbol: 'AAPL', name: 'Apple Inc.', basePrice: 175.00, marketCap: '$2.7T' },
-      { symbol: 'GOOGL', name: 'Alphabet Inc.', basePrice: 2430.00, marketCap: '$1.6T' },
-      { symbol: 'MSFT', name: 'Microsoft Corp.', basePrice: 378.00, marketCap: '$2.8T' },
-      { symbol: 'AMZN', name: 'Amazon.com Inc.', basePrice: 142.00, marketCap: '$1.5T' },
-      { symbol: 'TSLA', name: 'Tesla Inc.', basePrice: 235.00, marketCap: '$750B' },
-
-      // Crypto
-      { symbol: 'BTC', name: 'Bitcoin', basePrice: 114012.00, marketCap: '$830B' },
-      { symbol: 'ETH', name: 'Ethereum', basePrice: 3201.00, marketCap: '$385B' },
-      { symbol: 'ADA', name: 'Cardano', basePrice: 0.45, marketCap: '$16B' },
-      { symbol: 'DOT', name: 'Polkadot', basePrice: 6.23, marketCap: '$7.8B' },
-      { symbol: 'SOL', name: 'Solana', basePrice: 98.45, marketCap: '$42B' },
-
-      // Finance
-      { symbol: 'JPM', name: 'JPMorgan Chase', basePrice: 165.00, marketCap: '$485B' },
-      { symbol: 'BAC', name: 'Bank of America', basePrice: 32.50, marketCap: '$265B' },
-      { symbol: 'WFC', name: 'Wells Fargo', basePrice: 45.25, marketCap: '$175B' },
-      { symbol: 'GS', name: 'Goldman Sachs', basePrice: 425.00, marketCap: '$145B' },
-      { symbol: 'C', name: 'Citigroup Inc.', basePrice: 51.20, marketCap: '$95B' }
-    ]
-
-    sampleStocks.forEach(stock => {
-      const price = this.generateRandomPrice(stock.basePrice)
-      const change = price - stock.basePrice
-      const changePercent = (change / stock.basePrice) * 100
-
-      this.stockDatabase[stock.symbol] = {
-        symbol: stock.symbol,
-        name: stock.name,
-        price,
-        change,
-        changePercent,
-        volume: this.generateRandomVolume(),
-        marketCap: stock.marketCap,
-        lastUpdate: new Date().toISOString()
-      }
-    })
-  }
+  // Removed initializeSampleStocks() method - stocks are now loaded only from database or client requests
 
   private generateRandomPrice(basePrice: number): number {
     // Generate price movement between -3% to +3%

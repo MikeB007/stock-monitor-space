@@ -53,7 +53,7 @@ class EnhancedStockPriceService {
     private lastProviderUsed: string = ''
 
     constructor() {
-        this.initializeSampleStocks()
+        // Removed initializeSampleStocks() - stocks are now loaded only from database or client requests
         this.initializeBitcoinPrice()
     }
 
@@ -107,85 +107,8 @@ class EnhancedStockPriceService {
         }
     }
 
-    private initializeSampleStocks() {
-        const sampleStocks = [
-            // Core holdings
-            { symbol: 'AAPL', name: 'Apple Inc.', basePrice: 175.00, marketCap: '$2.7T' },
-            { symbol: 'SMR', name: 'NuScale Power Corp', basePrice: 14.25, marketCap: '$3.8B' },
-            { symbol: 'IONX', name: 'Ioneer Ltd', basePrice: 0.89, marketCap: '$142M' },
-            { symbol: 'IBM', name: 'International Business Machines', basePrice: 230.50, marketCap: '$213B' },
-
-            // Tech Giants
-            { symbol: 'GOOGL', name: 'Alphabet Inc.', basePrice: 2430.00, marketCap: '$1.6T' },
-            { symbol: 'MSFT', name: 'Microsoft Corp.', basePrice: 378.00, marketCap: '$2.8T' },
-            { symbol: 'AMZN', name: 'Amazon.com Inc.', basePrice: 142.00, marketCap: '$1.5T' },
-            { symbol: 'TSLA', name: 'Tesla Inc.', basePrice: 235.00, marketCap: '$750B' },
-            { symbol: 'META', name: 'Meta Platforms Inc.', basePrice: 325.00, marketCap: '$830B' },
-            { symbol: 'NVDA', name: 'NVIDIA Corp.', basePrice: 485.00, marketCap: '$1.2T' },
-
-            // Finance
-            { symbol: 'JPM', name: 'JPMorgan Chase', basePrice: 165.00, marketCap: '$485B' },
-            { symbol: 'BAC', name: 'Bank of America', basePrice: 32.50, marketCap: '$265B' },
-            { symbol: 'WFC', name: 'Wells Fargo', basePrice: 45.25, marketCap: '$175B' },
-            { symbol: 'GS', name: 'Goldman Sachs', basePrice: 425.00, marketCap: '$145B' },
-            { symbol: 'C', name: 'Citigroup Inc.', basePrice: 51.20, marketCap: '$95B' }
-        ]
-
-        // Initialize with simulated data first
-        sampleStocks.forEach(stock => {
-            const price = this.generateRandomPrice(stock.basePrice)
-            const change = price - stock.basePrice
-            const changePercent = (change / stock.basePrice) * 100
-
-            this.stockDatabase[stock.symbol] = {
-                symbol: stock.symbol,
-                name: stock.name,
-                price,
-                change,
-                changePercent,
-                volume: this.generateRandomVolume(),
-                marketCap: stock.marketCap,
-                lastUpdate: new Date().toISOString(),
-                provider: 'Simulated'
-            }
-        })
-
-        // If using real prices, update with provider data
-        if (this.useRealPrices) {
-            this.updateSampleStocksWithRealData()
-        }
-    }
-
-    private async updateSampleStocksWithRealData() {
-        const symbols = Object.keys(this.stockDatabase).filter(s => s !== 'BTC')
-
-        try {
-            console.log(`📊 Fetching real data for ${symbols.length} stocks from providers...`)
-
-            // Use batch request for efficiency
-            const quotes = await dataProviderManager.fetchMultipleQuotes({
-                symbols: symbols,
-                allowFallback: true,
-                maxConcurrency: 10
-            })
-
-            let updatedCount = 0
-            for (const [symbol, quote] of quotes) {
-                if (this.stockDatabase[symbol]) {
-                    this.stockDatabase[symbol] = this.convertQuoteToStockData(quote, 'Yahoo Finance')
-                    updatedCount++
-                }
-            }
-
-            console.log(`✅ Updated ${updatedCount}/${symbols.length} stocks with real provider data`)
-            this.successfulRequests += updatedCount
-            this.totalRequests += symbols.length
-
-        } catch (error) {
-            console.error('Failed to update sample stocks with real data:', error)
-            this.failedRequests += symbols.length
-        }
-    }
+    // Removed initializeSampleStocks() and updateSampleStocksWithRealData() methods
+    // Stocks are now loaded only from database or client requests
 
     private convertQuoteToStockData(quote: StockQuote, providerName: string): StockData {
         let symbol = quote.symbol

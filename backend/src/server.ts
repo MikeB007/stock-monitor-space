@@ -6,6 +6,8 @@ import { Server } from 'socket.io'
 import { setupRoutes } from './routes'
 import ocrRoutes from './routes/ocrRoutes'
 import portfolioRoutes from './routes/portfolioRoutes'
+import portfolioManagementRoutes from './routes/portfolioManagementRoutes'
+import userRoutes from './routes/userRoutes'
 import { databaseService } from './services/databaseService'
 import { enhancedStockPriceService as stockPriceService } from './services/enhancedStockPriceService'
 
@@ -162,6 +164,8 @@ app.post('/api/refresh-stock', async (req, res) => {
 app.use('/api', ocrRoutes)
 
 // Portfolio routes for database management
+app.use('/api', userRoutes)
+app.use('/api', portfolioManagementRoutes)
 app.use('/api', portfolioRoutes)
 
 // Routes

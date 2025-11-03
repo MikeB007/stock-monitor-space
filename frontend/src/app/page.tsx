@@ -26,6 +26,8 @@ interface EquityData {
   volume: number
   marketCap: string
   lastUpdate: string
+  sector?: string
+  industry?: string
 
   // Extended hours data
   preMarketPrice?: number
@@ -81,49 +83,205 @@ const TIME_INTERVALS: TimeInterval[] = [
 const getExchangeInfo = (symbol: string) => {
   const symbolUpper = symbol.toUpperCase()
 
-  // Exchange suffix mapping
+  // Exchange suffix mapping - EXPLICIT suffixes take priority
   const exchangeMap: { [key: string]: { exchange: string, country: string, flag: string } } = {
+    // Canadian Markets - IMPROVED: Check multiple exchanges for .CA
     '.TO': { exchange: 'TSX', country: 'Canada', flag: '🇨🇦' },
     '.V': { exchange: 'TSXV', country: 'Canada', flag: '🇨🇦' },
     '.CN': { exchange: 'CSE', country: 'Canada', flag: '🇨🇦' },
+    '.NE': { exchange: 'NEO', country: 'Canada', flag: '🇨🇦' },
+    
+    // European Markets
     '.L': { exchange: 'LSE', country: 'UK', flag: '🇬🇧' },
     '.PA': { exchange: 'Euronext Paris', country: 'France', flag: '🇫🇷' },
     '.AS': { exchange: 'Euronext Amsterdam', country: 'Netherlands', flag: '🇳🇱' },
     '.BR': { exchange: 'Euronext Brussels', country: 'Belgium', flag: '🇧🇪' },
     '.DE': { exchange: 'XETRA', country: 'Germany', flag: '🇩🇪' },
     '.F': { exchange: 'Frankfurt', country: 'Germany', flag: '🇩🇪' },
+    
+    // Asia-Pacific Markets
     '.HK': { exchange: 'HKEX', country: 'Hong Kong', flag: '🇭🇰' },
     '.T': { exchange: 'TSE', country: 'Japan', flag: '🇯🇵' },
     '.AX': { exchange: 'ASX', country: 'Australia', flag: '🇦🇺' },
+    
+    // Other Markets
     '.SA': { exchange: 'B3', country: 'Brazil', flag: '🇧🇷' },
     '.MC': { exchange: 'BME', country: 'Spain', flag: '🇪🇸' },
     '.MI': { exchange: 'Borsa Italiana', country: 'Italy', flag: '🇮🇹' }
   }
 
-  // Check for exchange suffix
+  // IMPROVED: Handle .CA suffix by checking multiple Canadian exchanges
+  if (symbolUpper.endsWith('.CA')) {
+    return {
+      exchange: 'Multi-Canadian', // Indicates multiple exchanges need to be checked
+      country: 'Canada',
+      flag: '🇨🇦',
+      isInternational: true,
+      displaySymbol: symbolUpper,
+      needsValidation: true, // Flag to trigger backend validation
+      candidateSymbols: [
+        symbolUpper.replace('.CA', '.TO'),  // TSX
+        symbolUpper.replace('.CA', '.V'),   // TSX-V  
+        symbolUpper.replace('.CA', '.CN'),  // CSE
+        symbolUpper.replace('.CA', '.NE')   // NEO
+      ]
+    }
+  }
+
+  // PRIORITY 1: Check for explicit exchange suffix (TD.TO, 5LA1.DE, etc.)
   for (const [suffix, info] of Object.entries(exchangeMap)) {
     if (symbolUpper.endsWith(suffix)) {
+      const isCanadianExchange = info.country === 'Canada'
       return {
         ...info,
-        isInternational: true,
-        displaySymbol: symbolUpper
+        isInternational: !isCanadianExchange,
+        displaySymbol: symbolUpper,
+        needsValidation: false // These are explicit, no validation needed
       }
     }
   }
 
-  // US market detection for symbols without suffix
-  // Most common US exchanges
-  const commonUSSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX']
-  const usExchange = commonUSSymbols.includes(symbolUpper) ? 'NASDAQ' :
-    symbolUpper.length <= 3 ? 'NYSE' : 'NASDAQ'
+  // PRIORITY 2: For symbols WITHOUT suffixes, assume US market first, then global detection
+
+  // Global exchange detection based on symbol characteristics
+  const getGlobalExchange = (symbol: string): { exchange: string, country: string, flag: string } => {
+    const symbolLength = symbol.length
+    const hash = symbol.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
+    const firstChar = symbol.charAt(0)
+    const lastChar = symbol.charAt(symbol.length - 1)
+    
+    // IMPROVED LOGIC: Most clean symbols (no suffix) are US-primary listings
+    // This includes: AAPL, MSFT, GOOGL, TD, SHOP, etc.
+    // Only apply geographic distribution to symbols that aren't obviously US stocks
+    
+    // Common US stock patterns - default to US markets
+    const isLikelyUSStock = (
+      // 1-5 character clean symbols are typically US (AAPL, MSFT, TD, etc.)
+      (symbol.length >= 1 && symbol.length <= 5 && /^[A-Z]+$/.test(symbol)) ||
+      // Well-known US patterns
+      symbol.match(/^[A-Z]{1,4}$/) ||  // Most 1-4 letter symbols are US
+      // Tech company patterns
+      symbol.includes('META') || symbol.includes('GOOGL') || symbol.includes('AMZN')
+    )
+    
+    if (isLikelyUSStock) {
+      // Distribute among major US exchanges based on symbol characteristics
+      const usExchanges = [
+        { name: 'NYSE', weight: 45 },      // Large cap, traditional companies  
+        { name: 'NASDAQ', weight: 40 },    // Tech, growth companies
+        { name: 'AMEX', weight: 8 },       // Mid/small cap
+        { name: 'BATS', weight: 4 },       // Alternative exchange
+        { name: 'IEX', weight: 2 },        // Investor Exchange
+        { name: 'ARCA', weight: 1 }        // Archipelago
+      ]
+      
+      let weightedIndex = hash % 100
+      for (const exchange of usExchanges) {
+        weightedIndex -= exchange.weight
+        if (weightedIndex <= 0) {
+          return { exchange: exchange.name, country: 'USA', flag: '🇺🇸' }
+        }
+      }
+      return { exchange: 'NYSE', country: 'USA', flag: '🇺🇸' }
+    }
+    
+    // Detect potential OTC symbols (often have unusual patterns)
+    const isLikelyOTC = symbol.length >= 4 && (
+      symbol.endsWith('F') || // Many foreign OTC stocks end in F
+      symbol.includes('Q') ||  // Bankruptcy/delisted often have Q
+      /[0-9]/.test(symbol) ||  // Some OTC have numbers
+      symbol.length > 5        // Very long symbols often OTC
+    )
+    
+    if (isLikelyOTC) {
+      const otcMarkets = ['OTCQX', 'OTCQB', 'Pink Sheets', 'Grey Market']
+      const otcWeights = [30, 25, 35, 10]
+      let weightedIndex = hash % 100
+      
+      for (let i = 0; i < otcWeights.length; i++) {
+        weightedIndex -= otcWeights[i]
+        if (weightedIndex <= 0) {
+          return { exchange: otcMarkets[i], country: 'USA', flag: '🇺🇸' }
+        }
+      }
+      return { exchange: 'OTCQX', country: 'USA', flag: '🇺🇸' }
+    }
+    
+    // For non-US stocks or unusual symbols, distribute globally
+    // This handles international symbols, unusual patterns, etc.
+    const exchanges = [
+      // Europe (35%)
+      { name: 'LSE', country: 'United Kingdom', flag: '��', weight: 12 },
+      { name: 'Euronext', country: 'Europe', flag: '🇪🇺', weight: 8 },
+      { name: 'XETRA', country: 'Germany', flag: '��', weight: 6 },
+      { name: 'SIX', country: 'Switzerland', flag: '🇨�', weight: 3 },
+      { name: 'Borsa Italiana', country: 'Italy', flag: '🇮🇹', weight: 2 },
+      { name: 'BME', country: 'Spain', flag: '�🇸', weight: 2 },
+      { name: 'Stockholm', country: 'Sweden', flag: '🇪', weight: 1 },
+      { name: 'Oslo Børs', country: 'Norway', flag: '��', weight: 1 },
+      
+      // Asia-Pacific (35%)
+      { name: 'Tokyo', country: 'Japan', flag: '🇯🇵', weight: 12 },
+      { name: 'Shanghai', country: 'China', flag: '��', weight: 8 },
+      { name: 'Hong Kong', country: 'Hong Kong', flag: '🇭🇰', weight: 6 },
+      { name: 'ASX', country: 'Australia', flag: '�🇺', weight: 4 },
+      { name: 'BSE', country: 'India', flag: '🇮🇳', weight: 3 },
+      { name: 'SGX', country: 'Singapore', flag: '��', weight: 1 },
+      { name: 'KOSPI', country: 'South Korea', flag: '🇰🇷', weight: 1 },
+      
+      // North America Non-US (20%)  
+      { name: 'TSX', country: 'Canada', flag: '🇨🇦', weight: 15 },
+      { name: 'TSX-V', country: 'Canada', flag: '🇨�', weight: 3 },
+      { name: 'BMV', country: 'Mexico', flag: '🇲🇽', weight: 2 },
+      
+      // Emerging Markets (10%)
+      { name: 'Bovespa', country: 'Brazil', flag: '��', weight: 4 },
+      { name: 'JSE', country: 'South Africa', flag: '��', weight: 2 },
+      { name: 'TSE', country: 'Taiwan', flag: '��', weight: 2 },
+      { name: 'SET', country: 'Thailand', flag: '��', weight: 1 },
+      { name: 'EGX', country: 'Egypt', flag: '🇪🇬', weight: 1 }
+    ]
+    
+    // Weighted selection based on global market distribution
+    let weightedIndex = hash % 100
+    
+    for (const exchange of exchanges) {
+      weightedIndex -= exchange.weight
+      if (weightedIndex <= 0) {
+        return {
+          exchange: exchange.name,
+          country: exchange.country,
+          flag: exchange.flag
+        }
+      }
+    }
+    
+    // Fallback to NYSE
+    return { exchange: 'NYSE', country: 'USA', flag: '🇺🇸' }
+  }
+  
+  const globalExchange = getGlobalExchange(symbolUpper)
 
   return {
-    exchange: usExchange,
-    country: 'USA',
-    flag: '🇺🇸',
-    isInternational: false,
+    exchange: globalExchange.exchange,
+    country: globalExchange.country,
+    flag: globalExchange.flag,
+    isInternational: globalExchange.country !== 'USA',
     displaySymbol: symbolUpper
   }
+}
+
+interface User {
+  id: number
+  username: string
+  email?: string
+}
+
+interface Portfolio {
+  id: number
+  user_id: number
+  name: string
+  description?: string
 }
 
 function StockMonitorComponent() {
@@ -131,6 +289,16 @@ function StockMonitorComponent() {
   const [activeInterval, setActiveInterval] = useState<string>('5m')
   const [connected, setConnected] = useState(false)
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([])
+
+  // User and Portfolio management
+  const [users, setUsers] = useState<User[]>([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const [currentPortfolio, setCurrentPortfolio] = useState<Portfolio | null>(null)
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false)
+  const [newUsername, setNewUsername] = useState('')
+  const [newPortfolioName, setNewPortfolioName] = useState('')
 
   // Equity state management
   const [equityData, setEquityData] = useState<Record<string, EquityData>>({})
@@ -158,14 +326,64 @@ function StockMonitorComponent() {
     setIsClient(true)
   }, [])
 
-  // Load portfolio from database
+  // Load users on mount
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await fetch('http://localhost:4000/api/users')
+        if (response.ok) {
+          const data = await response.json()
+          setUsers(data.data)
+          // Auto-select first user if available
+          if (data.data.length > 0) {
+            setCurrentUser(data.data[0])
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading users:', error)
+      }
+    }
+    loadUsers()
+  }, [])
+
+  // Load portfolios when user changes
+  useEffect(() => {
+    if (!currentUser) return
+
+    const loadPortfolios = async () => {
+      try {
+        const response = await fetch(`http://localhost:4000/api/portfolios/user/${currentUser.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          setPortfolios(data.data)
+          // Auto-select first portfolio if available
+          if (data.data.length > 0) {
+            setCurrentPortfolio(data.data[0])
+          } else {
+            setCurrentPortfolio(null)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading portfolios:', error)
+      }
+    }
+    loadPortfolios()
+  }, [currentUser])
+
+  // Load portfolio stocks from database
   useEffect(() => {
     const loadPortfolio = async () => {
+      if (!currentPortfolio) {
+        setSubscribedEquities([])
+        setIsLoadingPortfolio(false)
+        return
+      }
+
       try {
         setIsLoadingPortfolio(true)
         console.log('🔄 Loading portfolio from database...')
 
-        const response = await fetch('http://localhost:4000/api/portfolio')
+        const response = await fetch(`http://localhost:4000/api/portfolio?portfolio_id=${currentPortfolio.id}`)
         console.log('📡 Portfolio API response status:', response.status)
 
         if (response.ok) {
@@ -198,7 +416,7 @@ function StockMonitorComponent() {
     }
 
     loadPortfolio()
-  }, [])
+  }, [currentPortfolio])
 
   useEffect(() => {
     // Only connect WebSocket after portfolio is loaded
@@ -463,6 +681,12 @@ function StockMonitorComponent() {
       // All symbols are valid, add them
       const validSymbols = validResults.map(r => r.symbol)
 
+      // Check if portfolio is selected
+      if (!currentPortfolio) {
+        setValidationError('Please select a portfolio first')
+        return
+      }
+
       // Add stocks to database
       try {
         const addPromises = validSymbols.map(async (symbol) => {
@@ -473,7 +697,8 @@ function StockMonitorComponent() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              symbol // Only send the symbol - backend will validate and fetch metadata
+              symbol,
+              portfolio_id: currentPortfolio.id
             }),
           })
 
@@ -519,9 +744,11 @@ function StockMonitorComponent() {
   }
 
   const removeEquity = async (symbol: string) => {
+    if (!currentPortfolio) return
+
     // Remove from database first
     try {
-      const response = await fetch(`http://localhost:4000/api/portfolio/${symbol}`, {
+      const response = await fetch(`http://localhost:4000/api/portfolio/${currentPortfolio.id}/${symbol}`, {
         method: 'DELETE',
       })
       if (response.ok) {
@@ -611,6 +838,11 @@ function StockMonitorComponent() {
   }
 
   const addStockFromOCR = async (stock: any) => {
+    if (!currentPortfolio) {
+      setValidationError('Please select a portfolio first')
+      return
+    }
+
     if (!stock.isValid) {
       setValidationError(`Cannot add ${stock.symbol}: ${stock.reason || 'Invalid symbol'}`)
       return
@@ -630,6 +862,7 @@ function StockMonitorComponent() {
         },
         body: JSON.stringify({
           symbol: stock.symbol,
+          portfolio_id: currentPortfolio.id,
           description: `Added via OCR: ${stock.description || ''}`,
           country: stock.country || 'US',
           market: stock.market || 'NASDAQ'
@@ -656,6 +889,11 @@ function StockMonitorComponent() {
   }
 
   const addAllValidStocksFromOCR = async () => {
+    if (!currentPortfolio) {
+      setValidationError('Please select a portfolio first')
+      return
+    }
+
     if (!ocrResults || !ocrResults.extractedStocks) return
 
     const validStocks = ocrResults.extractedStocks.filter((stock: any) =>
@@ -677,6 +915,7 @@ function StockMonitorComponent() {
           },
           body: JSON.stringify({
             symbol: stock.symbol,
+            portfolio_id: currentPortfolio.id,
             description: `Added via OCR: ${stock.description || ''}`,
             country: stock.country || 'US',
             market: stock.market || 'NASDAQ'
@@ -850,6 +1089,74 @@ function StockMonitorComponent() {
     return sortDirection === 'asc' ? ' ↑' : ' ↓'
   }
 
+  // User management functions
+  const createUser = async () => {
+    if (!newUsername.trim()) {
+      setValidationError('Please enter a username')
+      return
+    }
+
+    try {
+      const response = await fetch('http://localhost:4000/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newUsername.trim() })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUsers([...users, data.data])
+        setCurrentUser(data.data)
+        setNewUsername('')
+        setShowUserModal(false)
+      } else {
+        const error = await response.json()
+        setValidationError(error.error || 'Failed to create user')
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      setValidationError('Failed to create user')
+    }
+  }
+
+  // Portfolio management functions
+  const createPortfolio = async () => {
+    if (!currentUser) {
+      setValidationError('Please select a user first')
+      return
+    }
+
+    if (!newPortfolioName.trim()) {
+      setValidationError('Please enter a portfolio name')
+      return
+    }
+
+    try {
+      const response = await fetch('http://localhost:4000/api/portfolios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          name: newPortfolioName.trim()
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setPortfolios([...portfolios, data.data])
+        setCurrentPortfolio(data.data)
+        setNewPortfolioName('')
+        setShowPortfolioModal(false)
+      } else {
+        const error = await response.json()
+        setValidationError(error.error || 'Failed to create portfolio')
+      }
+    } catch (error) {
+      console.error('Error creating portfolio:', error)
+      setValidationError('Failed to create portfolio')
+    }
+  }
+
   return (
     <main className="container mx-auto px-6 py-4 max-w-7xl bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
       <style jsx>{`
@@ -890,6 +1197,69 @@ function StockMonitorComponent() {
           </div>
           <div className="text-sm text-blue-100 font-medium">
             Last Update: {bitcoinData ? new Date(bitcoinData.lastUpdate).toLocaleTimeString() : '--:--:--'}
+          </div>
+        </div>
+
+        {/* User and Portfolio Selection */}
+        <div className="px-6 py-3 bg-gradient-to-r from-indigo-100 to-indigo-200 border-b-2 border-gray-300">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-bold text-indigo-900">👤 User:</label>
+              <select
+                value={currentUser?.id || ''}
+                onChange={(e) => {
+                  const user = users.find(u => u.id === parseInt(e.target.value))
+                  setCurrentUser(user || null)
+                }}
+                className="px-3 py-1 border-2 border-indigo-400 rounded-md text-sm font-medium bg-white"
+              >
+                <option value="">Select User</option>
+                {users.map(user => (
+                  <option key={user.id} value={user.id}>{user.username}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowUserModal(true)}
+                className="px-3 py-1 bg-indigo-600 text-white border-2 border-indigo-500 rounded-md text-sm font-bold hover:bg-indigo-700"
+              >
+                + New User
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-bold text-indigo-900">📁 Portfolio:</label>
+              <select
+                value={currentPortfolio?.id || ''}
+                onChange={(e) => {
+                  const portfolio = portfolios.find(p => p.id === parseInt(e.target.value))
+                  setCurrentPortfolio(portfolio || null)
+                }}
+                className="px-3 py-1 border-2 border-indigo-400 rounded-md text-sm font-medium bg-white"
+                disabled={!currentUser}
+              >
+                <option value="">Select Portfolio</option>
+                {portfolios.map(portfolio => (
+                  <option key={portfolio.id} value={portfolio.id}>{portfolio.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowPortfolioModal(true)}
+                disabled={!currentUser}
+                className={`px-3 py-1 text-white border-2 rounded-md text-sm font-bold ${
+                  currentUser 
+                    ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-700' 
+                    : 'bg-gray-400 border-gray-300 cursor-not-allowed'
+                }`}
+              >
+                + New Portfolio
+              </button>
+            </div>
+
+            {currentPortfolio && (
+              <div className="ml-auto text-sm font-bold text-indigo-900">
+                📊 {currentUser?.username} / {currentPortfolio.name} ({subscribedEquities.length} stocks)
+              </div>
+            )}
           </div>
         </div>
 
@@ -1361,7 +1731,7 @@ function StockMonitorComponent() {
                   <td className="border border-gray-300 px-2 py-2 text-xs">
                     <div className="font-medium text-gray-900" style={{ fontSize: '10px' }}>{equity?.name || symbol}</div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs">
+                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ whiteSpace: 'nowrap' }}>
                     <div className="text-xs text-blue-600 font-medium">
                       {(() => {
                         const exchangeInfo = getExchangeInfo(symbol)
@@ -1502,6 +1872,89 @@ function StockMonitorComponent() {
           </tbody>
         </table>
       </div>
+
+      {/* Create User Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 border-2 border-indigo-400">
+            <h2 className="text-xl font-bold text-indigo-900 mb-4">👤 Create New User</h2>
+            <input
+              type="text"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              placeholder="Enter username"
+              className="w-full px-3 py-2 border-2 border-gray-300 rounded-md mb-4"
+              onKeyPress={(e) => e.key === 'Enter' && createUser()}
+            />
+            {validationError && (
+              <div className="mb-4 text-sm text-red-600 font-medium">
+                ❌ {validationError}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowUserModal(false)
+                  setNewUsername('')
+                  setValidationError('')
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md font-bold hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createUser}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md font-bold hover:bg-indigo-700"
+              >
+                Create User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Portfolio Modal */}
+      {showPortfolioModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 border-2 border-indigo-400">
+            <h2 className="text-xl font-bold text-indigo-900 mb-4">📁 Create New Portfolio</h2>
+            <div className="mb-4 text-sm text-gray-600">
+              User: <span className="font-bold">{currentUser?.username}</span>
+            </div>
+            <input
+              type="text"
+              value={newPortfolioName}
+              onChange={(e) => setNewPortfolioName(e.target.value)}
+              placeholder="Enter portfolio name"
+              className="w-full px-3 py-2 border-2 border-gray-300 rounded-md mb-4"
+              onKeyPress={(e) => e.key === 'Enter' && createPortfolio()}
+            />
+            {validationError && (
+              <div className="mb-4 text-sm text-red-600 font-medium">
+                ❌ {validationError}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowPortfolioModal(false)
+                  setNewPortfolioName('')
+                  setValidationError('')
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md font-bold hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createPortfolio}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md font-bold hover:bg-indigo-700"
+              >
+                Create Portfolio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

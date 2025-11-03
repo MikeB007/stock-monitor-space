@@ -434,6 +434,42 @@ class DataProviderManager {
         }
     }
 
+    // Fetch company profile (sector, industry) - called once during stock validation
+    public async fetchCompanyProfile(symbol: string): Promise<{ sector: string, industry: string } | null> {
+        console.log(`🏢 Fetching company profile for ${symbol}...`)
+
+        // Try Yahoo Finance first (Priority 1, free, no API key needed)
+        const yahooProvider = this.providers.get('Yahoo Finance Real')
+        if (yahooProvider && (yahooProvider as any).fetchCompanyProfile) {
+            try {
+                const profile = await (yahooProvider as any).fetchCompanyProfile(symbol)
+                if (profile && profile.sector !== 'N/A') {
+                    return profile
+                }
+            } catch (error) {
+                console.warn(`Failed to fetch profile from Yahoo Finance:`, error)
+            }
+        }
+
+        // Fallback to Alpha Vantage (has COMPANY_OVERVIEW API, requires API key)
+        const alphaProvider = this.providers.get('Alpha Vantage')
+        if (alphaProvider && (alphaProvider as any).fetchCompanyProfile) {
+            try {
+                const profile = await (alphaProvider as any).fetchCompanyProfile(symbol)
+                if (profile && profile.sector !== 'N/A') {
+                    return profile
+                }
+            } catch (error) {
+                console.warn(`Failed to fetch profile from Alpha Vantage:`, error)
+            }
+        }
+
+        // Could add other providers here (FMP, etc.) if they have company profile APIs
+
+        console.log(`⚠️ Could not fetch company profile for ${symbol} from any provider`)
+        return null
+    }
+
     public shutdown(): void {
         if (this.healthCheckTimer) {
             clearInterval(this.healthCheckTimer)

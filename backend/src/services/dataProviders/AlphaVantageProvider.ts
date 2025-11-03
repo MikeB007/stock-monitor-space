@@ -278,4 +278,45 @@ export class AlphaVantageProvider extends BaseDataProvider {
             nextResetTime: new Date(this.minuteResetTime)
         }
     }
+
+    // Fetch company profile data (sector, industry) - called once during stock validation
+    async fetchCompanyProfile(symbol: string): Promise<{ sector: string, industry: string } | null> {
+        if (!this.apiKey || this.apiKey === 'demo') {
+            return null
+        }
+
+        if (!this.checkRateLimit()) {
+            console.warn('Alpha Vantage: Rate limit exceeded for company profile')
+            return null
+        }
+
+        try {
+            const response = await axios.get(this.baseUrl, {
+                params: {
+                    function: 'OVERVIEW',
+                    symbol: symbol,
+                    apikey: this.apiKey
+                },
+                timeout: this.timeout
+            })
+
+            this.requestsThisMinute++
+            this.lastRequestTime = Date.now()
+
+            const data = response.data
+
+            if (data && data.Sector && data.Industry) {
+                console.log(`✅ Alpha Vantage: Fetched company profile for ${symbol} - ${data.Sector}/${data.Industry}`)
+                return {
+                    sector: data.Sector || 'N/A',
+                    industry: data.Industry || 'N/A'
+                }
+            }
+
+            return null
+        } catch (error) {
+            console.warn(`Alpha Vantage: Failed to fetch company profile for ${symbol}:`, error)
+            return null
+        }
+    }
 }

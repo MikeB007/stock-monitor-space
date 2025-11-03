@@ -16,6 +16,10 @@ export interface StockQuote {
     yearLow: number
     lastUpdate: string
 
+    // Company information
+    sector?: string
+    industry?: string
+
     // Extended hours data
     preMarketPrice?: number
     preMarketChange?: number

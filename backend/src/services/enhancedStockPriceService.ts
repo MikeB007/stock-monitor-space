@@ -20,6 +20,10 @@ export interface StockData {
     yearLow?: number
     provider?: string // Which provider supplied this data
 
+    // Company information
+    sector?: string
+    industry?: string
+
     // Extended hours data
     preMarketPrice?: number
     preMarketChange?: number
@@ -134,6 +138,10 @@ class EnhancedStockPriceService {
             yearLow: quote.yearLow,
             provider: providerName,
 
+            // Company information
+            sector: quote.sector,
+            industry: quote.industry,
+
             // Extended hours data
             preMarketPrice: quote.preMarketPrice,
             preMarketChange: quote.preMarketChange,
@@ -160,6 +168,10 @@ class EnhancedStockPriceService {
             // Only record real price data, not simulated
             if (stockData.provider && !stockData.provider.includes('Simulated')) {
                 await databaseService.recordStockPrice(stockData)
+                
+                // Note: Auto-update of portfolio stocks disabled in multi-portfolio system
+                // Sector/industry data is fetched when stocks are added to portfolios
+                // If needed, implement portfolio-specific updates using portfolio_id
             }
         } catch (error) {
             console.error(`Failed to record price for ${stockData.symbol}:`, error)
@@ -212,13 +224,11 @@ class EnhancedStockPriceService {
     }
 
     private getOriginalPrice(symbol: string): number {
-        const basePrices: Record<string, number> = {
-            'AAPL': 175.00, 'SMR': 14.25, 'IONX': 0.89, 'IBM': 230.50,
-            'GOOGL': 2430.00, 'MSFT': 378.00, 'AMZN': 142.00, 'TSLA': 235.00,
-            'META': 325.00, 'NVDA': 485.00, 'BTC': 114012.00,
-            'JPM': 165.00, 'BAC': 32.50, 'WFC': 45.25, 'GS': 425.00, 'C': 51.20
-        }
-        return basePrices[symbol] || 100
+        // Dynamic pricing based on symbol characteristics instead of hardcoded values
+        const hash = symbol.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
+        const baseRange = symbol.length <= 3 ? [50, 500] : [10, 200] // Shorter symbols tend to be larger companies
+        const price = baseRange[0] + (hash % (baseRange[1] - baseRange[0]))
+        return Math.round(price * 100) / 100 // Round to 2 decimals
     }
 
     public startPriceUpdates(callback: (stockData: StockData) => void) {

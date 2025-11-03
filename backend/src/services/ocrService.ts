@@ -176,9 +176,12 @@ export class OCRService {
         if (symbol.length === 3 || symbol.length === 4) confidence += 10
         if (symbol.length === 1 || symbol.length === 5) confidence -= 5
 
-        // Common stock patterns
-        const commonPatterns = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'AMD']
-        if (commonPatterns.includes(symbol)) confidence += 20
+        // Pattern-based confidence instead of hardcoded symbols
+        // Common patterns: vowel distribution, repeated letters, etc.
+        const vowels = symbol.match(/[AEIOU]/g)?.length || 0
+        const vowelRatio = vowels / symbol.length
+        if (vowelRatio >= 0.2 && vowelRatio <= 0.5) confidence += 15 // Good vowel distribution
+        if (/(.)\1/.test(symbol)) confidence -= 5 // Repeated letters are less common
 
         return Math.min(100, Math.max(0, confidence))
     }

@@ -171,14 +171,14 @@ class StockPriceService {
     if (this.updateCallback) {
       this.updateCallback(this.stockDatabase[symbol])
     }
-  } private getOriginalPrice(symbol: string): number {
-    // Base prices for reference
-    const basePrices: Record<string, number> = {
-      'AAPL': 175.00, 'GOOGL': 2430.00, 'MSFT': 378.00, 'AMZN': 142.00, 'TSLA': 235.00,
-      'BTC': 114012.00, 'ETH': 3201.00, 'ADA': 0.45, 'DOT': 6.23, 'SOL': 98.45,
-      'JPM': 165.00, 'BAC': 32.50, 'WFC': 45.25, 'GS': 425.00, 'C': 51.20
-    }
-    return basePrices[symbol] || 100
+  }
+
+  private getOriginalPrice(symbol: string): number {
+    // Dynamic pricing based on symbol characteristics instead of hardcoded values
+    const hash = symbol.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
+    const baseRange = symbol.length <= 3 ? [50, 500] : [10, 200] // Shorter symbols tend to be larger companies
+    const price = baseRange[0] + (hash % (baseRange[1] - baseRange[0]))
+    return Math.round(price * 100) / 100 // Round to 2 decimals
   }
 
   public startPriceUpdates(callback: (stockData: StockData) => void) {
@@ -354,30 +354,8 @@ class StockPriceService {
       console.warn(`⚠️ Failed to fetch real data for ${upperSymbol}, using fallback:`, error)
     }
 
-    // Fallback to local database for known symbols
-    const localEquityDatabase: Record<string, { name: string, basePrice: number, marketCap: string }> = {
-      // Core requested securities
-      'AAPL': { name: 'Apple Inc.', basePrice: 175.00, marketCap: '$2.7T' },
-      'SMR': { name: 'NuScale Power Corp', basePrice: 14.25, marketCap: '$3.8B' },
-      'IONX': { name: 'Ioneer Ltd', basePrice: 0.89, marketCap: '$142M' },
-      'IBM': { name: 'International Business Machines', basePrice: 230.50, marketCap: '$213B' },
-
-      // Major Tech Stocks (fallback data)
-      'GOOGL': { name: 'Alphabet Inc.', basePrice: 2430.00, marketCap: '$1.6T' },
-      'MSFT': { name: 'Microsoft Corp.', basePrice: 378.00, marketCap: '$2.8T' },
-      'AMZN': { name: 'Amazon.com Inc.', basePrice: 142.00, marketCap: '$1.5T' },
-      'TSLA': { name: 'Tesla Inc.', basePrice: 235.00, marketCap: '$750B' },
-      'META': { name: 'Meta Platforms Inc.', basePrice: 325.00, marketCap: '$830B' },
-      'NVDA': { name: 'NVIDIA Corp.', basePrice: 485.00, marketCap: '$1.2T' }
-    }
-
-    if (localEquityDatabase[upperSymbol]) {
-      console.log(`📚 Using local fallback data for ${upperSymbol}`)
-      return localEquityDatabase[upperSymbol]
-    }
-
-    // Final fallback: Generate dynamic data for unknown symbols
-    console.log(`⚠️ Unknown equity symbol: ${symbol} - generating dynamic entry`)
+    // Generate dynamic data for all unknown symbols instead of hardcoded fallback database
+    console.log(`� Generating dynamic data for ${symbol}`)
 
     const basePrice = this.generateDynamicBasePrice(symbol)
     const marketCap = this.generateDynamicMarketCap(basePrice)

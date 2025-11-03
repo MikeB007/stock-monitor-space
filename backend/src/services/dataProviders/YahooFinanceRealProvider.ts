@@ -1,6 +1,9 @@
 import axios from 'axios'
 import { BaseDataProvider, StockQuote } from './BaseDataProvider'
 
+// Import yahoo-finance2 - it's a CommonJS module with default export
+import yahooFinance from 'yahoo-finance2'
+
 export class YahooFinanceRealProvider extends BaseDataProvider {
     private lastRequestTime: number = 0
 
@@ -76,8 +79,13 @@ export class YahooFinanceRealProvider extends BaseDataProvider {
                 dayLow: meta.regularMarketDayLow || quote.low?.[latestIndex] || price,
                 yearHigh: meta.fiftyTwoWeekHigh || price,
                 yearLow: meta.fiftyTwoWeekLow || price,
-                lastUpdate: new Date().toISOString()
+                lastUpdate: new Date().toISOString(),
+                sector: 'N/A',
+                industry: 'N/A'
             }
+
+            // Note: Sector/industry will be fetched separately during stock validation
+            // to avoid 401 errors from Yahoo's quoteSummary API
 
             // Add extended hours data if available
             if (meta.preMarketPrice) {
@@ -152,6 +160,33 @@ export class YahooFinanceRealProvider extends BaseDataProvider {
         } catch (error) {
             console.error('Yahoo Real: Search error:', error)
             return []
+        }
+    }
+
+    // Fetch company profile (sector, industry) using yahoo-finance2 library
+    async fetchCompanyProfile(symbol: string): Promise<{ sector: string, industry: string } | null> {
+        try {
+            console.log(`🏢 Yahoo Finance: Fetching company profile for ${symbol}...`)
+            
+            // Bypass TypeScript's strict type checking for yahoo-finance2
+            const yf: any = yahooFinance
+            const result = await yf.quoteSummary(symbol, {
+                modules: ['assetProfile']
+            }, { validateResult: false })
+
+            const sector = result?.assetProfile?.sector || 'N/A'
+            const industry = result?.assetProfile?.industry || 'N/A'
+
+            if (sector !== 'N/A' || industry !== 'N/A') {
+                console.log(`✅ Yahoo Finance: Got sector/industry for ${symbol}: ${sector} / ${industry}`)
+                return { sector, industry }
+            }
+
+            console.log(`⚠️ Yahoo Finance: No sector/industry data for ${symbol}`)
+            return null
+        } catch (error: any) {
+            console.warn(`⚠️ Yahoo Finance: Failed to fetch company profile for ${symbol}:`, error.message)
+            return null
         }
     }
 

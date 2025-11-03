@@ -333,6 +333,62 @@ class DatabaseService {
         }
     }
 
+    // ==================== USER PREFERENCES / STATE MANAGEMENT ====================
+
+    public async updateUserLastViewedPortfolio(userId: number, portfolioId: number): Promise<boolean> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            const [result] = await this.pool.execute(
+                'UPDATE users SET last_viewed_portfolio_id = ? WHERE id = ?',
+                [portfolioId, userId]
+            )
+
+            const affectedRows = (result as any).affectedRows
+            return affectedRows > 0
+
+        } catch (error) {
+            console.error(`❌ Failed to update last viewed portfolio for user ${userId}:`, error)
+            throw error
+        }
+    }
+
+    public async getUserPreferences(browserId: string): Promise<{ last_viewed_user_id: number | null } | null> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            const [rows] = await this.pool.execute(
+                'SELECT last_viewed_user_id FROM user_preferences WHERE browser_id = ?',
+                [browserId]
+            ) as any
+
+            return rows.length > 0 ? rows[0] : null
+
+        } catch (error) {
+            console.error(`❌ Failed to get user preferences for browser ${browserId}:`, error)
+            throw error
+        }
+    }
+
+    public async saveUserPreferences(browserId: string, userId: number): Promise<void> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            await this.pool.execute(
+                `INSERT INTO user_preferences (browser_id, last_viewed_user_id) 
+                 VALUES (?, ?)
+                 ON DUPLICATE KEY UPDATE last_viewed_user_id = ?, updated_at = CURRENT_TIMESTAMP`,
+                [browserId, userId, userId]
+            )
+
+            console.log(`💾 Saved user preference: browser ${browserId} -> user ${userId}`)
+
+        } catch (error) {
+            console.error(`❌ Failed to save user preferences:`, error)
+            throw error
+        }
+    }
+
     // ==================== PORTFOLIO STOCKS MANAGEMENT ====================
 
     public async addPortfolioStock(stock: PortfolioStock): Promise<number> {
@@ -478,6 +534,46 @@ class DatabaseService {
 
         } catch (error) {
             console.error(`❌ Failed to get price history for ${symbol}:`, error)
+            throw error
+        }
+    }
+
+    public async getEarliestStockPrice(symbol: string): Promise<{ price: number, recorded_at: Date } | null> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            const [rows] = await this.pool.execute(
+                `SELECT price, recorded_at FROM stock_prices_history 
+                 WHERE symbol = ? 
+                 ORDER BY recorded_at ASC 
+                 LIMIT 1`,
+                [symbol]
+            )
+            const result = rows as any[]
+            return result.length > 0 ? result[0] : null
+
+        } catch (error) {
+            console.error(`❌ Failed to get earliest price for ${symbol}:`, error)
+            throw error
+        }
+    }
+
+    public async getLatestStockPrice(symbol: string): Promise<{ price: number, recorded_at: Date } | null> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            const [rows] = await this.pool.execute(
+                `SELECT price, recorded_at FROM stock_prices_history 
+                 WHERE symbol = ? 
+                 ORDER BY recorded_at DESC 
+                 LIMIT 1`,
+                [symbol]
+            )
+            const result = rows as any[]
+            return result.length > 0 ? result[0] : null
+
+        } catch (error) {
+            console.error(`❌ Failed to get latest price for ${symbol}:`, error)
             throw error
         }
     }

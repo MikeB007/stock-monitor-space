@@ -321,4 +321,186 @@ router.get('/portfolio/stats', async (req, res) => {
     }
 })
 
+// GET /api/portfolio/performance - Get performance data with % change from earliest recorded price
+router.get('/portfolio/performance', async (req, res) => {
+    try {
+        if (!databaseService.isConnected()) {
+            return res.status(503).json({
+                success: false,
+                error: 'Database not connected'
+            })
+        }
+
+        const portfolioId = req.query.portfolio_id ? parseInt(req.query.portfolio_id as string) : undefined
+        const stocks = await databaseService.getPortfolioStocks(portfolioId)
+
+        // Calculate performance for each stock
+        const performance = await Promise.all(stocks.map(async (stock) => {
+            try {
+                // Get earliest and latest prices from database
+                const earliestPrice = await databaseService.getEarliestStockPrice(stock.symbol)
+                const latestPrice = await databaseService.getLatestStockPrice(stock.symbol)
+
+                if (!earliestPrice || !latestPrice) {
+                    return {
+                        symbol: stock.symbol,
+                        currentPrice: null,
+                        earliestPrice: null,
+                        earliestDate: null,
+                        percentChange: null,
+                        priceChange: null,
+                        hasData: false
+                    }
+                }
+
+                // Calculate percentage change from earliest to latest
+                const priceChange = latestPrice.price - earliestPrice.price
+                const percentChange = ((priceChange / earliestPrice.price) * 100)
+
+                return {
+                    symbol: stock.symbol,
+                    currentPrice: latestPrice.price,
+                    earliestPrice: earliestPrice.price,
+                    earliestDate: earliestPrice.recorded_at,
+                    latestDate: latestPrice.recorded_at,
+                    percentChange: percentChange,
+                    priceChange: priceChange,
+                    hasData: true
+                }
+            } catch (error) {
+                console.error(`Error calculating performance for ${stock.symbol}:`, error)
+                return {
+                    symbol: stock.symbol,
+                    currentPrice: null,
+                    earliestPrice: null,
+                    earliestDate: null,
+                    percentChange: null,
+                    priceChange: null,
+                    hasData: false
+                }
+            }
+        }))
+
+        return res.json({
+            success: true,
+            data: performance,
+            portfolio_id: portfolioId
+        })
+
+    } catch (error) {
+        console.error('Get portfolio performance error:', error)
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to get portfolio performance'
+        })
+    }
+})
+
+// GET /api/portfolio/intervals - Get % change for all time intervals using database
+router.get('/portfolio/intervals', async (req, res) => {
+    try {
+        if (!databaseService.isConnected()) {
+            return res.status(503).json({
+                success: false,
+                error: 'Database not connected'
+            })
+        }
+
+        const portfolioId = req.query.portfolio_id ? parseInt(req.query.portfolio_id as string) : undefined
+        const stocks = await databaseService.getPortfolioStocks(portfolioId)
+
+        // Time intervals in minutes
+        const intervals = [
+            { id: '1m', minutes: 1 },
+            { id: '5m', minutes: 5 },
+            { id: '30m', minutes: 30 },
+            { id: '1h', minutes: 60 },
+            { id: '3h', minutes: 180 },
+            { id: '5h', minutes: 300 },
+            { id: '8h', minutes: 480 },
+            { id: '1d', minutes: 1440 },
+            { id: '3d', minutes: 4320 },
+            { id: '5d', minutes: 7200 },
+            { id: '8d', minutes: 11520 },
+            { id: '13d', minutes: 18720 },
+            { id: '1mo', minutes: 43200 },
+            { id: '3mo', minutes: 129600 },
+            { id: '5mo', minutes: 216000 },
+            { id: '8mo', minutes: 345600 },
+            { id: '13mo', minutes: 561600 },
+            { id: '1y', minutes: 525600 },
+            { id: '3y', minutes: 1576800 },
+            { id: '5y', minutes: 2628000 }
+        ]
+
+        // Calculate intervals for each stock
+        const intervalData = await Promise.all(stocks.map(async (stock) => {
+            const stockIntervals: any = { symbol: stock.symbol }
+
+            for (const interval of intervals) {
+                try {
+                    // Get price from X minutes ago
+                    const connection = await databaseService.getConnection()
+                    const [rows]: any = await connection.execute(
+                        `SELECT price, recorded_at 
+                         FROM stock_prices_history 
+                         WHERE symbol = ? 
+                         AND recorded_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)
+                         AND recorded_at <= DATE_SUB(NOW(), INTERVAL ? MINUTE)
+                         ORDER BY ABS(TIMESTAMPDIFF(SECOND, recorded_at, DATE_SUB(NOW(), INTERVAL ? MINUTE)))
+                         LIMIT 1`,
+                        [stock.symbol, interval.minutes + 5, interval.minutes - 5, interval.minutes]
+                    )
+                    connection.release()
+
+                    // Get latest price
+                    const latestPrice = await databaseService.getLatestStockPrice(stock.symbol)
+
+                    if (rows.length > 0 && latestPrice) {
+                        const historicalPrice = rows[0].price
+                        const priceChange = latestPrice.price - historicalPrice
+                        const percentChange = ((priceChange / historicalPrice) * 100)
+
+                        stockIntervals[interval.id] = {
+                            percentChange: percentChange,
+                            priceChange: priceChange,
+                            historicalPrice: historicalPrice,
+                            currentPrice: latestPrice.price,
+                            hasData: true
+                        }
+                    } else {
+                        stockIntervals[interval.id] = {
+                            percentChange: null,
+                            priceChange: null,
+                            hasData: false
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error calculating ${interval.id} for ${stock.symbol}:`, error)
+                    stockIntervals[interval.id] = {
+                        percentChange: null,
+                        priceChange: null,
+                        hasData: false
+                    }
+                }
+            }
+
+            return stockIntervals
+        }))
+
+        return res.json({
+            success: true,
+            data: intervalData,
+            portfolio_id: portfolioId
+        })
+
+    } catch (error) {
+        console.error('Get portfolio intervals error:', error)
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to get portfolio intervals'
+        })
+    }
+})
+
 export default router

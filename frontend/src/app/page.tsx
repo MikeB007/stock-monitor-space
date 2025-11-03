@@ -310,6 +310,20 @@ function StockMonitorComponent() {
   const [useRealPrices, setUseRealPrices] = useState(true)
   const [socket, setSocket] = useState<any>(null)
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(true)
+  const [performanceData, setPerformanceData] = useState<Record<string, {
+    percentChange: number | null
+    priceChange: number | null
+    earliestPrice: number | null
+    earliestDate: string | null
+    hasData: boolean
+  }>>({})
+  const [intervalData, setIntervalData] = useState<Record<string, Record<string, {
+    percentChange: number | null
+    priceChange: number | null
+    hasData: boolean
+  }>>>({})
+
+
 
   // OCR state management
   const [isProcessingOCR, setIsProcessingOCR] = useState<boolean>(false)
@@ -326,7 +340,17 @@ function StockMonitorComponent() {
     setIsClient(true)
   }, [])
 
-  // Load users on mount
+  // Generate or retrieve browser ID from localStorage
+  const getBrowserId = () => {
+    let browserId = localStorage.getItem('stock_monitor_browser_id')
+    if (!browserId) {
+      browserId = `browser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('stock_monitor_browser_id', browserId)
+    }
+    return browserId
+  }
+
+  // Load users on mount and restore last viewed state
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -334,7 +358,26 @@ function StockMonitorComponent() {
         if (response.ok) {
           const data = await response.json()
           setUsers(data.data)
-          // Auto-select first user if available
+          
+          // Try to restore last viewed user from preferences
+          const browserId = getBrowserId()
+          const prefsResponse = await fetch(`http://localhost:4000/api/preferences/${browserId}`)
+          
+          if (prefsResponse.ok) {
+            const prefsData = await prefsResponse.json()
+            const lastUserId = prefsData.data.last_viewed_user_id
+            
+            if (lastUserId) {
+              const lastUser = data.data.find((u: User) => u.id === lastUserId)
+              if (lastUser) {
+                console.log(`💾 Restored last viewed user: ${lastUser.username}`)
+                setCurrentUser(lastUser)
+                return
+              }
+            }
+          }
+          
+          // Fallback: Auto-select first user if no preferences found
           if (data.data.length > 0) {
             setCurrentUser(data.data[0])
           }
@@ -346,7 +389,7 @@ function StockMonitorComponent() {
     loadUsers()
   }, [])
 
-  // Load portfolios when user changes
+  // Load portfolios when user changes and restore last viewed portfolio
   useEffect(() => {
     if (!currentUser) return
 
@@ -356,7 +399,18 @@ function StockMonitorComponent() {
         if (response.ok) {
           const data = await response.json()
           setPortfolios(data.data)
-          // Auto-select first portfolio if available
+          
+          // Try to restore last viewed portfolio for this user
+          if (currentUser.last_viewed_portfolio_id) {
+            const lastPortfolio = data.data.find((p: Portfolio) => p.id === currentUser.last_viewed_portfolio_id)
+            if (lastPortfolio) {
+              console.log(`💾 Restored last viewed portfolio: ${lastPortfolio.name}`)
+              setCurrentPortfolio(lastPortfolio)
+              return
+            }
+          }
+          
+          // Fallback: Auto-select first portfolio if no last viewed found
           if (data.data.length > 0) {
             setCurrentPortfolio(data.data[0])
           } else {
@@ -376,6 +430,7 @@ function StockMonitorComponent() {
       if (!currentPortfolio) {
         setSubscribedEquities([])
         setIsLoadingPortfolio(false)
+        setPerformanceData({})
         return
       }
 
@@ -398,17 +453,40 @@ function StockMonitorComponent() {
           if (symbols.length === 0) {
             console.log('📝 Portfolio is empty - no stocks to track')
           }
+
+          // Load performance data
+          console.log('📊 Loading performance data...')
+          const perfResponse = await fetch(`http://localhost:4000/api/portfolio/performance?portfolio_id=${currentPortfolio.id}`)
+          if (perfResponse.ok) {
+            const perfData = await perfResponse.json()
+            console.log('✅ Performance data loaded:', perfData)
+            
+            // Convert array to object keyed by symbol
+            const perfMap: Record<string, any> = {}
+            perfData.data.forEach((perf: any) => {
+              perfMap[perf.symbol] = {
+                percentChange: perf.percentChange,
+                priceChange: perf.priceChange,
+                earliestPrice: perf.earliestPrice,
+                earliestDate: perf.earliestDate,
+                hasData: perf.hasData
+              }
+            })
+            setPerformanceData(perfMap)
+          }
         } else {
           console.error('❌ Failed to load portfolio:', response.status, response.statusText)
           // Set to empty array if API fails - no fallback defaults
           console.log('🔄 Setting empty portfolio due to API failure')
           setSubscribedEquities([])
+          setPerformanceData({})
         }
       } catch (error) {
         console.error('❌ Error loading portfolio:', error)
         // Set to empty array if error occurs - no fallback defaults
         console.log('🔄 Setting empty portfolio due to error')
         setSubscribedEquities([])
+        setPerformanceData({})
       } finally {
         setIsLoadingPortfolio(false)
         console.log('✅ Portfolio loading completed')
@@ -416,6 +494,60 @@ function StockMonitorComponent() {
     }
 
     loadPortfolio()
+  }, [currentPortfolio])
+
+  // Periodically refresh performance data and interval data to show live % changes
+  useEffect(() => {
+    if (!currentPortfolio) return
+
+    const refreshPerformance = async () => {
+      try {
+        // Fetch performance data (Total % Change column)
+        const perfResponse = await fetch(`http://localhost:4000/api/portfolio/performance?portfolio_id=${currentPortfolio.id}`)
+        if (perfResponse.ok) {
+          const perfData = await perfResponse.json()
+          
+          // Convert array to object keyed by symbol
+          const perfMap: Record<string, any> = {}
+          perfData.data.forEach((perf: any) => {
+            perfMap[perf.symbol] = {
+              percentChange: perf.percentChange,
+              priceChange: perf.priceChange,
+              earliestPrice: perf.earliestPrice,
+              earliestDate: perf.earliestDate,
+              hasData: perf.hasData
+            }
+          })
+          setPerformanceData(perfMap)
+          console.log('🔄 Performance data refreshed')
+        }
+
+        // Fetch interval data (1M, 5M, 30M, 1H, 3D, 5D, etc. columns)
+        const intervalResponse = await fetch(`http://localhost:4000/api/portfolio/intervals?portfolio_id=${currentPortfolio.id}`)
+        if (intervalResponse.ok) {
+          const intervalDataResponse = await intervalResponse.json()
+          
+          // Convert array to object keyed by symbol
+          const intervalMap: Record<string, any> = {}
+          intervalDataResponse.data.forEach((stock: any) => {
+            intervalMap[stock.symbol] = stock
+          })
+          setIntervalData(intervalMap)
+          console.log('🔄 Interval data refreshed')
+        }
+      } catch (error) {
+        console.error('❌ Error refreshing performance/interval data:', error)
+      }
+    }
+
+    // Initial fetch
+    refreshPerformance()
+
+    // Refresh data every 30 seconds (matches price recording interval)
+    const intervalId = setInterval(refreshPerformance, 30000)
+
+    // Cleanup on unmount or portfolio change
+    return () => clearInterval(intervalId)
   }, [currentPortfolio])
 
   useEffect(() => {
@@ -947,47 +1079,17 @@ function StockMonitorComponent() {
   }
 
   const calculateEquityIntervalData = (symbol: string, interval: string) => {
-    const history = equityPriceHistory[symbol] || []
-    if (history.length === 0) return null
+    // Get interval data from database
+    const stockIntervals = intervalData[symbol]
+    if (!stockIntervals) return null
 
-    const duration = TIME_INTERVALS.find(i => i.id === interval)?.duration || 5
-    const now = new Date()
-    const targetTime = new Date(now.getTime() - duration * 60 * 1000)
-
-    // Get the current price (most recent data point)
-    const currentPoint = history[history.length - 1]
-    if (!currentPoint) return null
-
-    // Find the closest data point to the target time (timeframe ago)
-    let closestPoint = null
-    let closestTimeDiff = Infinity
-
-    for (const point of history) {
-      const pointTime = new Date(point.timestamp)
-      const timeDiff = Math.abs(pointTime.getTime() - targetTime.getTime())
-
-      // Only consider points that are reasonably close to the target time
-      // Allow up to 50% tolerance for the timeframe
-      const maxAllowedDiff = (duration * 60 * 1000) * 0.5
-
-      if (timeDiff <= maxAllowedDiff && timeDiff < closestTimeDiff) {
-        closestTimeDiff = timeDiff
-        closestPoint = point
-      }
-    }
-
-    // If no suitable historical point found, return null
-    if (!closestPoint) return null
-
-    // Calculate percentage change from that specific timeframe ago
-    const change = currentPoint.price - closestPoint.price
-    const changePercent = (change / closestPoint.price) * 100
+    const intervalInfo = stockIntervals[interval]
+    if (!intervalInfo || !intervalInfo.hasData) return null
 
     return {
-      change,
-      changePercent,
-      dataPoints: history.length,
-      timeDiff: closestTimeDiff / (60 * 1000) // in minutes
+      change: intervalInfo.priceChange || 0,
+      changePercent: intervalInfo.percentChange || 0,
+      hasData: true
     }
   }
 
@@ -1040,6 +1142,8 @@ function StockMonitorComponent() {
     return [...subscribedEquities].sort((a, b) => {
       const equityA = equityData[a]
       const equityB = equityData[b]
+      const perfA = performanceData[a]
+      const perfB = performanceData[b]
 
       if (!equityA && !equityB) return 0
       if (!equityA) return 1
@@ -1050,12 +1154,14 @@ function StockMonitorComponent() {
 
       switch (sortColumn) {
         case '24hChange':
-          valueA = equityA.change
-          valueB = equityB.change
+          // Use performance data price change
+          valueA = perfA?.hasData && perfA.priceChange !== null ? perfA.priceChange : -Infinity
+          valueB = perfB?.hasData && perfB.priceChange !== null ? perfB.priceChange : -Infinity
           break
         case '24hChangePercent':
-          valueA = equityA.changePercent
-          valueB = equityB.changePercent
+          // Use performance data percentage change
+          valueA = perfA?.hasData && perfA.percentChange !== null ? perfA.percentChange : -Infinity
+          valueB = perfB?.hasData && perfB.percentChange !== null ? perfB.percentChange : -Infinity
           break
         case 'price':
           valueA = equityA.price
@@ -1207,9 +1313,24 @@ function StockMonitorComponent() {
               <label className="text-sm font-bold text-indigo-900">👤 User:</label>
               <select
                 value={currentUser?.id || ''}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const user = users.find(u => u.id === parseInt(e.target.value))
                   setCurrentUser(user || null)
+                  
+                  // Save user preference to database
+                  if (user) {
+                    const browserId = getBrowserId()
+                    try {
+                      await fetch('http://localhost:4000/api/preferences', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ browser_id: browserId, user_id: user.id })
+                      })
+                      console.log(`💾 Saved user preference: ${user.username}`)
+                    } catch (error) {
+                      console.error('❌ Error saving user preference:', error)
+                    }
+                  }
                 }}
                 className="px-3 py-1 border-2 border-indigo-400 rounded-md text-sm font-medium bg-white"
               >
@@ -1230,9 +1351,23 @@ function StockMonitorComponent() {
               <label className="text-sm font-bold text-indigo-900">📁 Portfolio:</label>
               <select
                 value={currentPortfolio?.id || ''}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const portfolio = portfolios.find(p => p.id === parseInt(e.target.value))
                   setCurrentPortfolio(portfolio || null)
+                  
+                  // Save portfolio preference to user's last_viewed_portfolio_id
+                  if (portfolio && currentUser) {
+                    try {
+                      await fetch(`http://localhost:4000/api/users/${currentUser.id}/last-portfolio`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ portfolio_id: portfolio.id })
+                      })
+                      console.log(`💾 Saved portfolio preference: ${portfolio.name}`)
+                    } catch (error) {
+                      console.error('❌ Error saving portfolio preference:', error)
+                    }
+                  }
                 }}
                 className="px-3 py-1 border-2 border-indigo-400 rounded-md text-sm font-medium bg-white"
                 disabled={!currentUser}
@@ -1684,9 +1819,9 @@ function StockMonitorComponent() {
                 className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                 style={{ textAlign: 'center' }}
                 onClick={() => handleSort('24hChange')}
-                title="Click to sort by 24h change - cycles through: % desc → $ desc → % asc → $ asc → none"
+                title="Total % change since stock was added to portfolio - based on historical database prices"
               >
-                📈 24h Change{getSortIndicator('24hChange')}
+                📈 Total % Change{getSortIndicator('24hChange')}
               </th>
               <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>1M</th>
               <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>5M</th>
@@ -1797,23 +1932,37 @@ function StockMonitorComponent() {
                     )}
                   </td>
                   <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    {equity ? (
-                      <span className={`change-${equity.change >= 0 ? 'positive' : 'negative'}-light`}>
-                        {equity.change >= 0 ? (
-                          <>
-                            <TrendingUp className="inline w-3 h-3 mr-1" />
-                            +{equity.change.toFixed(2)} (+{equity.changePercent.toFixed(2)}%)
-                          </>
-                        ) : (
-                          <>
-                            <TrendingDown className="inline w-3 h-3 mr-1" />
-                            {equity.change.toFixed(2)} ({equity.changePercent.toFixed(2)}%)
-                          </>
-                        )}
-                      </span>
-                    ) : (
-                      <div className="text-gray-400 text-xs">Loading...</div>
-                    )}
+                    {(() => {
+                      const perf = performanceData[symbol]
+                      if (perf && perf.hasData && perf.percentChange !== null) {
+                        const isPositive = perf.percentChange >= 0
+                        const daysHeld = perf.earliestDate 
+                          ? Math.floor((new Date().getTime() - new Date(perf.earliestDate).getTime()) / (1000 * 60 * 60 * 24))
+                          : 0
+                        return (
+                          <div>
+                            <span className={`change-${isPositive ? 'positive' : 'negative'}-light`}>
+                              {isPositive ? (
+                                <>
+                                  <TrendingUp className="inline w-3 h-3 mr-1" />
+                                  +{perf.priceChange?.toFixed(2)} (+{perf.percentChange.toFixed(2)}%)
+                                </>
+                              ) : (
+                                <>
+                                  <TrendingDown className="inline w-3 h-3 mr-1" />
+                                  {perf.priceChange?.toFixed(2)} ({perf.percentChange.toFixed(2)}%)
+                                </>
+                              )}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Since {new Date(perf.earliestDate!).toLocaleDateString()} ({daysHeld}d)
+                            </div>
+                          </div>
+                        )
+                      } else {
+                        return <div className="text-gray-400 text-xs">No historical data</div>
+                      }
+                    })()}
                   </td>
 
                   {/* Performance Intervals */}

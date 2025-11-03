@@ -115,4 +115,116 @@ router.post('/users', async (req, res) => {
     }
 })
 
+// GET /api/preferences/:browserId - Get user preferences for this browser
+router.get('/preferences/:browserId', async (req, res) => {
+    try {
+        if (!databaseService.isConnected()) {
+            return res.status(503).json({
+                success: false,
+                error: 'Database not connected'
+            })
+        }
+
+        const { browserId } = req.params
+        const preferences = await databaseService.getUserPreferences(browserId)
+
+        if (!preferences) {
+            return res.json({
+                success: true,
+                data: { last_viewed_user_id: null }
+            })
+        }
+
+        return res.json({
+            success: true,
+            data: preferences
+        })
+
+    } catch (error) {
+        console.error('Get preferences error:', error)
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to get preferences'
+        })
+    }
+})
+
+// POST /api/preferences - Save user preferences
+router.post('/preferences', async (req, res) => {
+    try {
+        if (!databaseService.isConnected()) {
+            return res.status(503).json({
+                success: false,
+                error: 'Database not connected'
+            })
+        }
+
+        const { browser_id, user_id } = req.body
+
+        if (!browser_id || !user_id) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields: browser_id, user_id'
+            })
+        }
+
+        await databaseService.saveUserPreferences(browser_id, user_id)
+
+        return res.json({
+            success: true,
+            message: 'Preferences saved successfully'
+        })
+
+    } catch (error) {
+        console.error('Save preferences error:', error)
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to save preferences'
+        })
+    }
+})
+
+// PUT /api/users/:userId/last-portfolio - Update user's last viewed portfolio
+router.put('/users/:userId/last-portfolio', async (req, res) => {
+    try {
+        if (!databaseService.isConnected()) {
+            return res.status(503).json({
+                success: false,
+                error: 'Database not connected'
+            })
+        }
+
+        const { userId } = req.params
+        const { portfolio_id } = req.body
+
+        if (!portfolio_id) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required field: portfolio_id'
+            })
+        }
+
+        const updated = await databaseService.updateUserLastViewedPortfolio(parseInt(userId), portfolio_id)
+
+        if (!updated) {
+            return res.status(404).json({
+                success: false,
+                error: `User ${userId} not found`
+            })
+        }
+
+        return res.json({
+            success: true,
+            message: 'Last viewed portfolio updated successfully'
+        })
+
+    } catch (error) {
+        console.error('Update last portfolio error:', error)
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to update last viewed portfolio'
+        })
+    }
+})
+
 export default router

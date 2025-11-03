@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     email VARCHAR(255),
+    last_viewed_portfolio_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -44,6 +45,16 @@ ADD UNIQUE KEY unique_portfolio_symbol (portfolio_id, symbol);
 ALTER TABLE portfolio_stocks 
 ADD CONSTRAINT fk_portfolio 
 FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE;
+
+-- Create user_preferences table for session state
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    browser_id VARCHAR(255) NOT NULL UNIQUE,
+    last_viewed_user_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (last_viewed_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
 
 -- Insert a default user and portfolio for existing data
 INSERT INTO users (username, email) VALUES ('Default User', 'default@example.com')

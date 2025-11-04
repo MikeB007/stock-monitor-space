@@ -167,7 +167,7 @@ export class OCRService {
         if (contextLower.includes('symbol') || contextLower.includes('ticker')) confidence += 30
         if (contextLower.includes('stock') || contextLower.includes('equity')) confidence += 25
         if (contextLower.includes('shares') || contextLower.includes('holdings')) confidence += 20
-        if (contextLower.includes('portfolio') || contextLower.includes('position')) confidence += 20
+        if (contextLower.includes('Watchlist') || contextLower.includes('position')) confidence += 20
         if (/\$[\d,]+\.?\d*/.test(context)) confidence += 15 // Price indicators
         if (/[\+\-]\d+\.?\d*%/.test(context)) confidence += 15 // Percentage change
         if (context.includes('(') && context.includes(')')) confidence += 10 // Parenthetical

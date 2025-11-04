@@ -184,8 +184,8 @@ router.post('/preferences', async (req, res) => {
     }
 })
 
-// PUT /api/users/:userId/last-portfolio - Update user's last viewed portfolio
-router.put('/users/:userId/last-portfolio', async (req, res) => {
+// PUT /api/users/:userId/last-Watchlist - Update user's last viewed Watchlist
+router.put('/users/:userId/last-Watchlist', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -195,16 +195,16 @@ router.put('/users/:userId/last-portfolio', async (req, res) => {
         }
 
         const { userId } = req.params
-        const { portfolio_id } = req.body
+        const { watchlist_id } = req.body
 
-        if (!portfolio_id) {
+        if (!watchlist_id) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required field: portfolio_id'
+                error: 'Missing required field: watchlist_id'
             })
         }
 
-        const updated = await databaseService.updateUserLastViewedPortfolio(parseInt(userId), portfolio_id)
+        const updated = await databaseService.updateUserLastViewedWatchlist(parseInt(userId), watchlist_id)
 
         if (!updated) {
             return res.status(404).json({
@@ -215,16 +215,18 @@ router.put('/users/:userId/last-portfolio', async (req, res) => {
 
         return res.json({
             success: true,
-            message: 'Last viewed portfolio updated successfully'
+            message: 'Last viewed Watchlist updated successfully'
         })
 
     } catch (error) {
-        console.error('Update last portfolio error:', error)
+        console.error('Update last Watchlist error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to update last viewed portfolio'
+            error: 'Failed to update last viewed Watchlist'
         })
     }
 })
 
 export default router
+
+

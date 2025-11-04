@@ -15,8 +15,8 @@ export const API_CONFIG = {
     USER_BY_ID: (userId: number) => `${API_BASE_URL}/api/users/${userId}`,
     
     // Preferences endpoints
-    PREFERENCES: (userId: number) => `${API_BASE_URL}/api/preferences/${userId}`,
-    USER_PREFERENCES: (browserId: string) => `${API_BASE_URL}/api/preferences/${browserId}`,
+    BROWSER_PREFERENCES: (browserId: string) => `${API_BASE_URL}/api/preferences/${browserId}`, // Get last viewed user for this browser
+    USER_PREFERENCES: (userId: number) => `${API_BASE_URL}/api/preferences/${userId}`, // Get/update user's color scheme settings
     SAVE_PREFERENCES: `${API_BASE_URL}/api/preferences`,
     
     // Watchlist endpoints

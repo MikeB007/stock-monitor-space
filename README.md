@@ -271,7 +271,7 @@ Update API URLs for production deployment:
 ## 🎉 Next Steps
 
 ### Potential Enhancements
-- [ ] User authentication and portfolios
+- [ ] User authentication and Watchlists
 - [ ] Historical price charts
 - [ ] Real market data integration (Alpha Vantage, IEX Cloud)
 - [ ] Stock alerts and notifications

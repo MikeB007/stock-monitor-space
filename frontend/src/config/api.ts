@@ -18,16 +18,16 @@ export const API_ENDPOINTS = {
   // User endpoints
   USERS: `${API_BASE_URL}/api/users`,
   USER_BY_ID: (userId: number) => `${API_BASE_URL}/api/users/${userId}`,
-  USER_LAST_PORTFOLIO: (userId: number) => `${API_BASE_URL}/api/users/${userId}/last-portfolio`,
+  USER_LAST_Watchlist: (userId: number) => `${API_BASE_URL}/api/users/${userId}/last-Watchlist`,
   
-  // Portfolio endpoints
-  PORTFOLIOS: `${API_BASE_URL}/api/portfolios`,
-  PORTFOLIO: `${API_BASE_URL}/api/portfolio`,
-  PORTFOLIO_BY_ID: (portfolioId: number) => `${API_BASE_URL}/api/portfolio?portfolio_id=${portfolioId}`,
-  PORTFOLIO_PERFORMANCE: (portfolioId: number) => `${API_BASE_URL}/api/portfolio/performance?portfolio_id=${portfolioId}`,
-  PORTFOLIO_INTERVALS: (portfolioId: number) => `${API_BASE_URL}/api/portfolio/intervals?portfolio_id=${portfolioId}`,
-  PORTFOLIOS_BY_USER: (userId: number) => `${API_BASE_URL}/api/portfolios/user/${userId}`,
-  DELETE_PORTFOLIO_STOCK: (portfolioId: number, symbol: string) => `${API_BASE_URL}/api/portfolio/${portfolioId}/${symbol}`,
+  // Watchlist endpoints
+  WatchlistS: `${API_BASE_URL}/api/Watchlists`,
+  Watchlist: `${API_BASE_URL}/api/Watchlist`,
+  Watchlist_BY_ID: (WatchlistId: number) => `${API_BASE_URL}/api/Watchlist?Watchlist_id=${WatchlistId}`,
+  Watchlist_PERFORMANCE: (WatchlistId: number) => `${API_BASE_URL}/api/Watchlist/performance?Watchlist_id=${WatchlistId}`,
+  Watchlist_INTERVALS: (WatchlistId: number) => `${API_BASE_URL}/api/Watchlist/intervals?Watchlist_id=${WatchlistId}`,
+  WatchlistS_BY_USER: (userId: number) => `${API_BASE_URL}/api/Watchlists/user/${userId}`,
+  DELETE_Watchlist_STOCK: (WatchlistId: number, symbol: string) => `${API_BASE_URL}/api/Watchlist/${WatchlistId}/${symbol}`,
   
   // Preferences endpoints
   PREFERENCES: `${API_BASE_URL}/api/preferences`,

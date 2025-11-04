@@ -59,10 +59,10 @@ When the database is properly configured, you should see:
 ```
 🗄️  Connecting to MySQL database...
 ✅ Database connection successful
-✅ Tables initialized: portfolio_stocks, stock_prices_history  
-✅ Default portfolio stocks added
+✅ Tables initialized: Watchlist_stocks, stock_prices_history  
+✅ Default Watchlist stocks added
 ✅ Database initialized successfully!
-🗄️  MySQL Portfolio Management: Enabled
+🗄️  MySQL Watchlist Management: Enabled
 ```
 
 ## If You See Errors

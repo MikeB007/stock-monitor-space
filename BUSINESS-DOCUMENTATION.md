@@ -35,12 +35,12 @@ Real-time stock monitoring application with MySQL database persistence, multi-pr
 - **Status**: Fully Operational
 - **Database**: MySQL (mystocks database)
 - **Tables**:
-  - portfolio_stocks: User portfolio with 10 stocks currently loaded
+  - Watchlist_stocks: User Watchlist with 10 stocks currently loaded
   - stock_prices_history: Historical price tracking
-- **Portfolio Management**: Add, update, delete stocks via REST API
+- **Watchlist Management**: Add, update, delete stocks via REST API
 - **Data Integrity**: No hardcoded defaults, database-only loading
 
-### 4. Current Portfolio Holdings
+### 4. Current Watchlist Holdings
 
 ```
 Symbol    | Description                          | Market  | Exchange | Status
@@ -80,7 +80,7 @@ JNJ       | Johnson & Johnson                   | US      | NYSE     | Active
 - **Features**:
   - Live price updates
   - Stock search and validation
-  - Add/remove stocks from portfolio
+  - Add/remove stocks from Watchlist
   - Market column with no-wrap formatting
 
 ---
@@ -120,7 +120,7 @@ JNJ       | Johnson & Johnson                   | US      | NYSE     | Active
 ### Database Requirements
 
 - MySQL database named 'mystocks'
-- Tables: portfolio_stocks, stock_prices_history
+- Tables: Watchlist_stocks, stock_prices_history
 - User: root
 - Password: (configured in .env)
 
@@ -213,7 +213,7 @@ JNJ       | Johnson & Johnson                   | US      | NYSE     | Active
 
 - Sector/industry data fetching
 - User authentication
-- Portfolio performance tracking
+- Watchlist performance tracking
 - Historical price charts
 - Email/SMS alerts
 - Mobile application

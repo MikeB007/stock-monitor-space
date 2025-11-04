@@ -1,28 +1,28 @@
 # Stock Monitor Backend - MySQL Integration
 
 ## Overview
-The Stock Monitor Backend now includes comprehensive MySQL database integration for portfolio management and price history tracking.
+The Stock Monitor Backend now includes comprehensive MySQL database integration for Watchlist management and price history tracking.
 
 ## Features
 
 ### Database Services
-- **Portfolio Management**: Store and manage stock portfolio with symbol, description, country, and market information
+- **Watchlist Management**: Store and manage stock Watchlist with symbol, description, country, and market information
 - **Price History**: Automatic recording of real stock price data from Yahoo Finance
 - **Connection Pooling**: Efficient MySQL connection management
 - **Auto-Initialization**: Database tables created automatically on startup
 
-### Portfolio API Endpoints
-- `GET /api/portfolio` - Get all portfolio stocks
-- `POST /api/portfolio` - Add stock to portfolio
-- `PUT /api/portfolio/:id` - Update portfolio stock
-- `DELETE /api/portfolio/:id` - Remove stock from portfolio
-- `GET /api/portfolio/stats` - Get portfolio statistics
+### Watchlist API Endpoints
+- `GET /api/Watchlist` - Get all Watchlist stocks
+- `POST /api/Watchlist` - Add stock to Watchlist
+- `PUT /api/Watchlist/:id` - Update Watchlist stock
+- `DELETE /api/Watchlist/:id` - Remove stock from Watchlist
+- `GET /api/Watchlist/stats` - Get Watchlist statistics
 
 ### Database Schema
 
-#### portfolio_stocks
+#### Watchlist_stocks
 ```sql
-CREATE TABLE portfolio_stocks (
+CREATE TABLE Watchlist_stocks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     symbol VARCHAR(10) NOT NULL UNIQUE,
     name VARCHAR(255),
@@ -71,7 +71,7 @@ USE_REAL_PRICES=true
 3. Update `.env` file with your MySQL credentials
 4. Start the backend - tables will be created automatically
 
-## Default Portfolio Stocks
+## Default Watchlist Stocks
 The system automatically populates default stocks on initialization:
 - AAPL (Apple Inc.) - US Market
 - SMR (NuScale Power) - US Market  
@@ -82,7 +82,7 @@ The system automatically populates default stocks on initialization:
 ## Real-Time Price Recording
 - Only real price data (not simulated) is recorded to the database
 - Prices are recorded automatically when fetched from Yahoo Finance
-- Price history enables portfolio performance tracking
+- Price history enables Watchlist performance tracking
 
 ## Error Handling
 - Database connection failures are gracefully handled
@@ -106,11 +106,11 @@ npm run build
 npm start
 ```
 
-## Portfolio Management Usage
+## Watchlist Management Usage
 
-### Add Stock to Portfolio
+### Add Stock to Watchlist
 ```javascript
-POST /api/portfolio
+POST /api/Watchlist
 {
   "symbol": "TSLA",
   "name": "Tesla Inc.",
@@ -122,9 +122,9 @@ POST /api/portfolio
 }
 ```
 
-### Get Portfolio Statistics
+### Get Watchlist Statistics
 ```javascript
-GET /api/portfolio/stats
+GET /api/Watchlist/stats
 {
   "total_stocks": 5,
   "total_value": 12500.00,
@@ -135,8 +135,8 @@ GET /api/portfolio/stats
 ## Logging
 Enhanced logging provides visibility into:
 - Database connection status
-- Portfolio operations
+- Watchlist operations
 - Price recording events
 - Error conditions
 
-The enhanced backend now provides a complete stock monitoring solution with persistent data storage and portfolio management capabilities.
+The enhanced backend now provides a complete stock monitoring solution with persistent data storage and Watchlist management capabilities.

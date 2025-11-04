@@ -20,9 +20,8 @@ export interface Portfolio {
     updated_at?: Date
 }
 
-export interface PortfolioStock {
+export interface Stock {
     id?: number
-    portfolio_id: number
     symbol: string
     description: string
     country: string
@@ -30,6 +29,33 @@ export interface PortfolioStock {
     exchange?: string
     sector?: string
     industry?: string
+    created_at?: Date
+    updated_at?: Date
+}
+
+export interface PortfolioStock {
+    id?: number
+    portfolio_id: number
+    stock_id: number
+    created_at?: Date
+    updated_at?: Date
+}
+
+// Extended interface for API responses that include stock details
+export interface PortfolioStockWithDetails extends PortfolioStock {
+    symbol: string
+    description: string
+    country: string
+    market: string
+    exchange?: string
+    sector?: string
+    industry?: string
+}
+
+export interface UserPreferences {
+    id?: number
+    user_id: number
+    color_scheme: string
     created_at?: Date
     updated_at?: Date
 }
@@ -120,12 +146,11 @@ class DatabaseService {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `)
 
-            // Create portfolio_stocks table
+            // Create stocks table (unique stock metadata)
             await this.pool.execute(`
-                CREATE TABLE IF NOT EXISTS portfolio_stocks (
+                CREATE TABLE IF NOT EXISTS stocks (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    portfolio_id INT NOT NULL,
-                    symbol VARCHAR(20) NOT NULL,
+                    symbol VARCHAR(20) NOT NULL UNIQUE,
                     description VARCHAR(255) NOT NULL,
                     country VARCHAR(100) NOT NULL,
                     market VARCHAR(100) NOT NULL,
@@ -134,12 +159,40 @@ class DatabaseService {
                     industry VARCHAR(100),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
-                    INDEX idx_portfolio_id (portfolio_id),
                     INDEX idx_symbol (symbol),
                     INDEX idx_market (market),
                     INDEX idx_country (country),
-                    UNIQUE KEY unique_portfolio_symbol (portfolio_id, symbol)
+                    INDEX idx_sector (sector)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `)
+
+            // Create portfolio_stocks junction table
+            await this.pool.execute(`
+                CREATE TABLE IF NOT EXISTS portfolio_stocks (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    portfolio_id INT NOT NULL,
+                    stock_id INT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
+                    FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
+                    UNIQUE KEY unique_portfolio_stock (portfolio_id, stock_id),
+                    INDEX idx_portfolio_id (portfolio_id),
+                    INDEX idx_stock_id (stock_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `)
+
+            // Create user_preferences table
+            await this.pool.execute(`
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    color_scheme VARCHAR(50) DEFAULT 'standard',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    UNIQUE KEY unique_user_preferences (user_id),
+                    INDEX idx_user_id (user_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `)
 
@@ -389,33 +442,102 @@ class DatabaseService {
         }
     }
 
-    // ==================== PORTFOLIO STOCKS MANAGEMENT ====================
+    // ==================== STOCKS MANAGEMENT ====================
 
-    public async addPortfolioStock(stock: PortfolioStock): Promise<number> {
+    public async createOrGetStock(stockData: Omit<Stock, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
+            // Try to insert, or update if symbol already exists
             const [result] = await this.pool.execute(
-                `INSERT INTO portfolio_stocks (portfolio_id, symbol, description, country, market, exchange, sector, industry) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [stock.portfolio_id, stock.symbol, stock.description, stock.country, stock.market, stock.exchange, stock.sector, stock.industry]
+                `INSERT INTO stocks (symbol, description, country, market, exchange, sector, industry) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE 
+                    description = VALUES(description),
+                    country = VALUES(country),
+                    market = VALUES(market),
+                    exchange = VALUES(exchange),
+                    sector = VALUES(sector),
+                    industry = VALUES(industry),
+                    id = LAST_INSERT_ID(id)`,
+                [stockData.symbol, stockData.description, stockData.country, stockData.market, 
+                 stockData.exchange, stockData.sector, stockData.industry]
             )
 
-            const insertId = (result as any).insertId
-            console.log(`📈 Added stock to portfolio ${stock.portfolio_id}: ${stock.symbol} - ${stock.description}`)
-            return insertId
+            const stockId = (result as any).insertId
+            console.log(`📊 Stock ${stockData.symbol} created/updated with ID: ${stockId}`)
+            return stockId
 
         } catch (error) {
-            console.error(`❌ Failed to add stock ${stock.symbol} to portfolio:`, error)
+            console.error(`❌ Failed to create/get stock ${stockData.symbol}:`, error)
             throw error
         }
     }
 
-    public async getPortfolioStocks(portfolioId?: number): Promise<PortfolioStock[]> {
+    public async getStockBySymbol(symbol: string): Promise<Stock | null> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
-            let query = 'SELECT * FROM portfolio_stocks'
+            const [rows] = await this.pool.execute(
+                'SELECT * FROM stocks WHERE symbol = ?',
+                [symbol]
+            ) as any
+
+            return rows.length > 0 ? rows[0] : null
+
+        } catch (error) {
+            console.error(`❌ Failed to get stock ${symbol}:`, error)
+            throw error
+        }
+    }
+
+    // ==================== PORTFOLIO STOCKS MANAGEMENT ====================
+
+    public async addPortfolioStock(portfolioId: number, stockData: Omit<Stock, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            // First, create or get the stock
+            const stockId = await this.createOrGetStock(stockData)
+
+            // Then, create the portfolio-stock relationship
+            const [result] = await this.pool.execute(
+                `INSERT INTO portfolio_stocks (portfolio_id, stock_id) 
+                 VALUES (?, ?)`,
+                [portfolioId, stockId]
+            )
+
+            const insertId = (result as any).insertId
+            console.log(`📈 Added stock ${stockData.symbol} (ID: ${stockId}) to portfolio ${portfolioId}`)
+            return insertId
+
+        } catch (error) {
+            console.error(`❌ Failed to add stock ${stockData.symbol} to portfolio:`, error)
+            throw error
+        }
+    }
+
+    public async getPortfolioStocks(portfolioId?: number): Promise<PortfolioStockWithDetails[]> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            let query = `
+                SELECT 
+                    ps.id,
+                    ps.portfolio_id,
+                    ps.stock_id,
+                    ps.created_at,
+                    ps.updated_at,
+                    s.symbol,
+                    s.description,
+                    s.country,
+                    s.market,
+                    s.exchange,
+                    s.sector,
+                    s.industry
+                FROM portfolio_stocks ps
+                INNER JOIN stocks s ON ps.stock_id = s.id
+            `
             const params: any[] = []
             
             if (portfolioId !== undefined) {
@@ -426,7 +548,7 @@ class DatabaseService {
             query += ' ORDER BY symbol ASC'
             
             const [rows] = await this.pool.execute(query, params)
-            return rows as PortfolioStock[]
+            return rows as PortfolioStockWithDetails[]
 
         } catch (error) {
             console.error('❌ Failed to get portfolio stocks:', error)
@@ -438,9 +560,16 @@ class DatabaseService {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
+            // First get the stock_id for this symbol
+            const stock = await this.getStockBySymbol(symbol)
+            if (!stock) {
+                console.log(`⚠️ Stock ${symbol} not found`)
+                return false
+            }
+
             const [result] = await this.pool.execute(
-                'DELETE FROM portfolio_stocks WHERE portfolio_id = ? AND symbol = ?',
-                [portfolioId, symbol]
+                'DELETE FROM portfolio_stocks WHERE portfolio_id = ? AND stock_id = ?',
+                [portfolioId, stock.id]
             )
 
             const affectedRows = (result as any).affectedRows
@@ -456,12 +585,12 @@ class DatabaseService {
         }
     }
 
-    public async updatePortfolioStock(portfolioId: number, symbol: string, updates: Partial<PortfolioStock>): Promise<boolean> {
+    public async updateStock(symbol: string, updates: Partial<Omit<Stock, 'id' | 'symbol' | 'created_at' | 'updated_at'>>): Promise<boolean> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             const setClause = Object.keys(updates)
-                .filter(key => key !== 'id' && key !== 'symbol' && key !== 'portfolio_id')
+                .filter(key => key !== 'id' && key !== 'symbol')
                 .map(key => `${key} = ?`)
                 .join(', ')
 
@@ -470,23 +599,23 @@ class DatabaseService {
             }
 
             const values = Object.keys(updates)
-                .filter(key => key !== 'id' && key !== 'symbol' && key !== 'portfolio_id')
+                .filter(key => key !== 'id' && key !== 'symbol')
                 .map(key => (updates as any)[key])
 
             const [result] = await this.pool.execute(
-                `UPDATE portfolio_stocks SET ${setClause} WHERE portfolio_id = ? AND symbol = ?`,
-                [...values, portfolioId, symbol]
+                `UPDATE stocks SET ${setClause} WHERE symbol = ?`,
+                [...values, symbol]
             )
 
             const affectedRows = (result as any).affectedRows
             if (affectedRows > 0) {
-                console.log(`📊 Updated stock in portfolio ${portfolioId}: ${symbol}`)
+                console.log(`📊 Updated stock metadata: ${symbol}`)
                 return true
             }
             return false
 
         } catch (error) {
-            console.error(`❌ Failed to update stock ${symbol} in portfolio:`, error)
+            console.error(`❌ Failed to update stock ${symbol}:`, error)
             throw error
         }
     }
@@ -581,6 +710,68 @@ class DatabaseService {
     public async getConnection() {
         if (!this.pool) throw new Error('Database not initialized')
         return await this.pool.getConnection()
+    }
+
+    // User Settings methods (color scheme preferences)
+    public async getUserSettings(userId: number): Promise<UserPreferences | null> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            const [rows] = await this.pool.execute(
+                'SELECT * FROM user_preferences WHERE user_id = ?',
+                [userId]
+            )
+            const result = rows as UserPreferences[]
+            
+            // If no preferences exist, create default ones
+            if (result.length === 0) {
+                await this.pool.execute(
+                    'INSERT INTO user_preferences (user_id, color_scheme) VALUES (?, ?)',
+                    [userId, 'standard']
+                )
+                return {
+                    user_id: userId,
+                    color_scheme: 'standard'
+                }
+            }
+            
+            return result[0]
+
+        } catch (error) {
+            console.error(`❌ Failed to get user settings for user ${userId}:`, error)
+            throw error
+        }
+    }
+
+    public async updateUserSettings(userId: number, preferences: Partial<UserPreferences>): Promise<void> {
+        if (!this.pool) throw new Error('Database not initialized')
+
+        try {
+            const updates: string[] = []
+            const values: any[] = []
+
+            if (preferences.color_scheme !== undefined) {
+                updates.push('color_scheme = ?')
+                values.push(preferences.color_scheme)
+            }
+
+            if (updates.length === 0) {
+                return
+            }
+
+            values.push(userId)
+
+            await this.pool.execute(
+                `UPDATE user_preferences SET ${updates.join(', ')} WHERE user_id = ?`,
+                values
+            )
+
+            console.log(`✅ Updated settings for user ${userId}`)
+
+        } catch (error) {
+            console.error(`❌ Failed to update user settings for user ${userId}:`, error)
+            throw error
+        }
     }
 
     public async close(): Promise<void> {

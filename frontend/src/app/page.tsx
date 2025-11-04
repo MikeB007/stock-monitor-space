@@ -2,8 +2,10 @@
 
 import { Activity, TrendingDown, TrendingUp } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import io from 'socket.io-client'
+import API_CONFIG from '@/config/api.config'
 
 interface BitcoinData {
   symbol: string
@@ -55,6 +57,10 @@ interface TimeInterval {
   label: string
   duration: number // minutes
 }
+
+// TABLE SPACING CONFIGURATION - Adjust these values to control table density
+const TABLE_HEADER_PADDING = 'px-2 py-1' // Header cell padding (default: px-2 py-3)
+const TABLE_DATA_PADDING = 'px-2 py-1'   // Data cell padding (default: px-2 py-2)
 
 const TIME_INTERVALS: TimeInterval[] = [
   { id: '1m', label: '1M', duration: 1 },
@@ -336,8 +342,69 @@ function StockMonitorComponent() {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
+  // Settings state
+  const router = useRouter()
+  const [colorScheme, setColorScheme] = useState<'standard' | 'graded'>('standard')
+
+  // Color scheme function - returns className based on percent change
+  const getIntervalColorClass = (changePercent: number): string => {
+    if (colorScheme === 'standard') {
+      // Standard: 0% = grey, positive = green, negative = red
+      if (changePercent === 0) return 'interval-neutral'
+      return changePercent > 0 ? 'interval-positive' : 'interval-negative'
+    } else {
+      // Graded: Every 3% changes intensity
+      if (changePercent === 0) return 'interval-neutral'
+      
+      const absPercent = Math.abs(changePercent)
+      if (changePercent > 0) {
+        // Green grading
+        if (absPercent >= 9) return 'text-green-700 font-bold' // 9%+
+        if (absPercent >= 6) return 'text-green-600 font-semibold' // 6-9%
+        if (absPercent >= 3) return 'text-green-500' // 3-6%
+        return 'text-green-400' // 0-3%
+      } else {
+        // Red grading
+        if (absPercent >= 9) return 'text-red-700 font-bold' // 9%+
+        if (absPercent >= 6) return 'text-red-600 font-semibold' // 6-9%
+        if (absPercent >= 3) return 'text-red-500' // 3-6%
+        return 'text-red-400' // 0-3%
+      }
+    }
+  }
+
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  // Load color scheme from localStorage and API on mount
+  useEffect(() => {
+    const loadColorScheme = async () => {
+      // First check localStorage for immediate UI update
+      const savedScheme = localStorage.getItem('colorScheme')
+      if (savedScheme === 'standard' || savedScheme === 'graded') {
+        setColorScheme(savedScheme)
+      }
+
+      // Then load from API if user is logged in
+      const userId = localStorage.getItem('currentUserId')
+      if (userId) {
+        try {
+          const response = await fetch(API_CONFIG.ENDPOINTS.PREFERENCES(parseInt(userId)))
+          if (response.ok) {
+            const prefs = await response.json()
+            if (prefs && prefs.color_scheme) {
+              setColorScheme(prefs.color_scheme)
+              localStorage.setItem('colorScheme', prefs.color_scheme)
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load color scheme:', error)
+        }
+      }
+    }
+
+    loadColorScheme()
   }, [])
 
   // Generate or retrieve browser ID from localStorage
@@ -354,14 +421,14 @@ function StockMonitorComponent() {
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const response = await fetch('http://localhost:4000/api/users')
+        const response = await fetch(API_CONFIG.ENDPOINTS.USERS)
         if (response.ok) {
           const data = await response.json()
           setUsers(data.data)
           
           // Try to restore last viewed user from preferences
           const browserId = getBrowserId()
-          const prefsResponse = await fetch(`http://localhost:4000/api/preferences/${browserId}`)
+          const prefsResponse = await fetch(API_CONFIG.ENDPOINTS.USER_PREFERENCES(browserId))
           
           if (prefsResponse.ok) {
             const prefsData = await prefsResponse.json()
@@ -372,6 +439,9 @@ function StockMonitorComponent() {
               if (lastUser) {
                 console.log(`💾 Restored last viewed user: ${lastUser.username}`)
                 setCurrentUser(lastUser)
+                
+                // Store current user ID for settings page
+                localStorage.setItem('currentUserId', lastUserId.toString())
                 return
               }
             }
@@ -380,6 +450,7 @@ function StockMonitorComponent() {
           // Fallback: Auto-select first user if no preferences found
           if (data.data.length > 0) {
             setCurrentUser(data.data[0])
+            localStorage.setItem('currentUserId', data.data[0].id.toString())
           }
         }
       } catch (error) {
@@ -387,6 +458,12 @@ function StockMonitorComponent() {
       }
     }
     loadUsers()
+    
+    // Load color scheme preference from localStorage
+    const savedColorScheme = localStorage.getItem('colorScheme')
+    if (savedColorScheme === 'standard' || savedColorScheme === 'graded') {
+      setColorScheme(savedColorScheme)
+    }
   }, [])
 
   // Load portfolios when user changes and restore last viewed portfolio
@@ -395,7 +472,7 @@ function StockMonitorComponent() {
 
     const loadPortfolios = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/api/portfolios/user/${currentUser.id}`)
+        const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO_BY_USER(currentUser.id))
         if (response.ok) {
           const data = await response.json()
           setPortfolios(data.data)
@@ -438,7 +515,7 @@ function StockMonitorComponent() {
         setIsLoadingPortfolio(true)
         console.log('🔄 Loading portfolio from database...')
 
-        const response = await fetch(`http://localhost:4000/api/portfolio?portfolio_id=${currentPortfolio.id}`)
+        const response = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO}?portfolio_id=${currentPortfolio.id}`)
         console.log('📡 Portfolio API response status:', response.status)
 
         if (response.ok) {
@@ -456,7 +533,7 @@ function StockMonitorComponent() {
 
           // Load performance data
           console.log('📊 Loading performance data...')
-          const perfResponse = await fetch(`http://localhost:4000/api/portfolio/performance?portfolio_id=${currentPortfolio.id}`)
+          const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO_PERFORMANCE}?portfolio_id=${currentPortfolio.id}`)
           if (perfResponse.ok) {
             const perfData = await perfResponse.json()
             console.log('✅ Performance data loaded:', perfData)
@@ -503,7 +580,7 @@ function StockMonitorComponent() {
     const refreshPerformance = async () => {
       try {
         // Fetch performance data (Total % Change column)
-        const perfResponse = await fetch(`http://localhost:4000/api/portfolio/performance?portfolio_id=${currentPortfolio.id}`)
+        const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO_PERFORMANCE}?portfolio_id=${currentPortfolio.id}`)
         if (perfResponse.ok) {
           const perfData = await perfResponse.json()
           
@@ -523,7 +600,7 @@ function StockMonitorComponent() {
         }
 
         // Fetch interval data (1M, 5M, 30M, 1H, 3D, 5D, etc. columns)
-        const intervalResponse = await fetch(`http://localhost:4000/api/portfolio/intervals?portfolio_id=${currentPortfolio.id}`)
+        const intervalResponse = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO_INTERVALS}?portfolio_id=${currentPortfolio.id}`)
         if (intervalResponse.ok) {
           const intervalDataResponse = await intervalResponse.json()
           
@@ -557,7 +634,9 @@ function StockMonitorComponent() {
     }
 
     // Connect to WebSocket
-    const socketConnection = io('http://localhost:4000')
+    console.log('🔌 Connecting to WebSocket:', API_CONFIG.WS_URL)
+    console.log('🔧 API_CONFIG:', API_CONFIG)
+    const socketConnection = io(API_CONFIG.WS_URL)
     setSocket(socketConnection)
 
     socketConnection.on('connect', () => {
@@ -782,7 +861,7 @@ function StockMonitorComponent() {
     try {
       // Validate all normalized symbols with backend
       const validationPromises = normalizedSymbols.map(async (symbol) => {
-        const response = await fetch('http://localhost:4000/api/validate-symbol', {
+        const response = await fetch(API_CONFIG.ENDPOINTS.VALIDATE_SYMBOL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -823,7 +902,7 @@ function StockMonitorComponent() {
       try {
         const addPromises = validSymbols.map(async (symbol) => {
           console.log(`🔍 Adding ${symbol} to portfolio via API...`)
-          const response = await fetch('http://localhost:4000/api/portfolio', {
+          const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -880,7 +959,7 @@ function StockMonitorComponent() {
 
     // Remove from database first
     try {
-      const response = await fetch(`http://localhost:4000/api/portfolio/${currentPortfolio.id}/${symbol}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/portfolio/${currentPortfolio.id}/${symbol}`, {
         method: 'DELETE',
       })
       if (response.ok) {
@@ -946,7 +1025,7 @@ function StockMonitorComponent() {
       formData.append('image', selectedFile)
 
       console.log('Uploading image for OCR processing...')
-      const response = await fetch('http://localhost:4000/api/extract-stocks', {
+      const response = await fetch(API_CONFIG.ENDPOINTS.EXTRACT_STOCKS, {
         method: 'POST',
         body: formData,
       })
@@ -987,7 +1066,7 @@ function StockMonitorComponent() {
 
     // Add to database
     try {
-      const response = await fetch('http://localhost:4000/api/portfolio', {
+      const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1040,7 +1119,7 @@ function StockMonitorComponent() {
     // Add all stocks to database
     try {
       const addPromises = validStocks.map(async (stock: any) => {
-        const response = await fetch('http://localhost:4000/api/portfolio', {
+        const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1203,7 +1282,7 @@ function StockMonitorComponent() {
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/users', {
+      const response = await fetch(API_CONFIG.ENDPOINTS.USERS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: newUsername.trim() })
@@ -1238,7 +1317,7 @@ function StockMonitorComponent() {
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/portfolios', {
+      const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIOS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1300,6 +1379,15 @@ function StockMonitorComponent() {
             >
               {useRealPrices ? '📡 REAL' : '🎲 SIM'}
             </button>
+
+            {/* Settings Button */}
+            <button
+              onClick={() => router.push('/settings')}
+              className="flex items-center gap-2 px-3 py-1 rounded-md text-sm font-bold transition-colors bg-gray-600 text-white border-2 border-gray-500 hover:bg-gray-700"
+              title="Settings"
+            >
+              ⚙️
+            </button>
           </div>
           <div className="text-sm text-blue-100 font-medium">
             Last Update: {bitcoinData ? new Date(bitcoinData.lastUpdate).toLocaleTimeString() : '--:--:--'}
@@ -1321,7 +1409,7 @@ function StockMonitorComponent() {
                   if (user) {
                     const browserId = getBrowserId()
                     try {
-                      await fetch('http://localhost:4000/api/preferences', {
+                      await fetch(API_CONFIG.ENDPOINTS.SAVE_PREFERENCES, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ browser_id: browserId, user_id: user.id })
@@ -1358,7 +1446,7 @@ function StockMonitorComponent() {
                   // Save portfolio preference to user's last_viewed_portfolio_id
                   if (portfolio && currentUser) {
                     try {
-                      await fetch(`http://localhost:4000/api/users/${currentUser.id}/last-portfolio`, {
+                      await fetch(`${API_CONFIG.BASE_URL}/api/users/${currentUser.id}/last-portfolio`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ portfolio_id: portfolio.id })
@@ -1447,23 +1535,23 @@ function StockMonitorComponent() {
           <tbody>
             {bitcoinData ? (
               <tr>
-                <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+                <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs bg-gradient-to-r from-orange-500 to-orange-600">
                     ₿
                   </div>
                 </td>
-                <td className="border border-gray-300 px-2 py-2 text-xs">
+                <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`}>
                   <div>
                     <div className="font-medium text-gray-900 text-xs">Bitcoin</div>
                     <div className="text-xs font-bold text-gray-600">BTC</div>
                   </div>
                 </td>
-                <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                   <div className="text-sm font-bold text-gray-900">
                     {formatPrice(bitcoinData.price)}
                   </div>
                 </td>
-                <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                   <span className={`change-${bitcoinData.change >= 0 ? 'positive' : 'negative'}-light`}>
                     {bitcoinData.change >= 0 ? (
                       <>
@@ -1495,12 +1583,12 @@ function StockMonitorComponent() {
                   )
                 })}
 
-                <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                   <div className="text-xs text-gray-600">
                     {(bitcoinData.volume / 1000000).toFixed(1)}M
                   </div>
                 </td>
-                <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                   <div className="text-xs font-medium text-gray-700">
                     {bitcoinData.marketCap}
                   </div>
@@ -1508,28 +1596,26 @@ function StockMonitorComponent() {
               </tr>
             ) : (
               <tr>
-                <td colSpan={26} className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+                <td colSpan={26} className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                   <div className="py-8 text-gray-500">Loading Bitcoin data...</div>
                 </td>
               </tr>
-            )}
-            {/* Placeholder rows for future assets */}
-            <tr className="opacity-50">
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+            )}{/* Placeholder rows for future assets */}<tr className="opacity-50">
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs bg-gradient-to-r from-blue-500 to-blue-600">
                   Ξ
                 </div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs">
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`}>
                 <div>
                   <div className="font-medium text-gray-900 text-xs">Ethereum</div>
                   <div className="text-xs font-bold text-gray-600">ETH</div>
                 </div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                 <div className="text-sm font-bold text-gray-400">--</div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                 <div className="text-gray-400 text-xs">Coming Soon</div>
               </td>
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
@@ -1552,29 +1638,29 @@ function StockMonitorComponent() {
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                 <div className="text-xs text-gray-400">--</div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                 <div className="text-xs text-gray-400">--</div>
               </td>
             </tr>
             <tr className="opacity-30">
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs bg-gradient-to-r from-green-500 to-green-600">
                   $
                 </div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs">
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`}>
                 <div>
                   <div className="font-medium text-gray-900 text-xs">Tether</div>
                   <div className="text-xs font-bold text-gray-600">USDT</div>
                 </div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                 <div className="text-sm font-bold text-gray-400">--</div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                 <div className="text-gray-400 text-xs">Coming Soon</div>
               </td>
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
@@ -1597,10 +1683,10 @@ function StockMonitorComponent() {
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
               <td className="border border-gray-300 px-2 py-2 text-xs text-center"><div className="text-gray-400 text-xs">--</div></td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                 <div className="text-xs text-gray-400">--</div>
               </td>
-              <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+              <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                 <div className="text-xs text-gray-400">--</div>
               </td>
             </tr>
@@ -1795,57 +1881,58 @@ function StockMonitorComponent() {
         <table className="w-full border-collapse asset-table">
           <thead>
             <tr>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ textAlign: 'center', width: '40px' }}>🎯</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ textAlign: 'center', width: '40px' }}>🎯</th>
               <th
-                className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors`}
                 onClick={() => handleSort('symbol')}
                 title="Click to sort by symbol"
+                style={{ whiteSpace: 'nowrap' }}
               >
-                📊 Security{getSortIndicator('symbol')}
+                📊 Sec{getSortIndicator('symbol')}
               </th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider">🏢 Description</th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider">🌐 Market</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ whiteSpace: 'nowrap' }}>🏢 Description</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ whiteSpace: 'nowrap' }}>🌐 Market</th>
               <th
-                className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                style={{ textAlign: 'right' }}
+                className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors`}
+                style={{ textAlign: 'right', whiteSpace: 'nowrap' }}
                 onClick={() => handleSort('price')}
                 title="Click to sort by price"
               >
                 💰 Price{getSortIndicator('price')}
               </th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ textAlign: 'right' }}>🌅 Pre-Market</th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ textAlign: 'right' }}>🌇 After-Hours</th>
+              {/* <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>🌅 Pre-Market</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>🌇 After-Hours</th> */}
               <th
-                className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                style={{ textAlign: 'center' }}
+                className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors`}
+                style={{ textAlign: 'center', whiteSpace: 'nowrap' }}
                 onClick={() => handleSort('24hChange')}
-                title="Total % change since stock was added to portfolio - based on historical database prices"
+                title="Click to sort by 24-hour change from previous close"
               >
-                📈 Total % Change{getSortIndicator('24hChange')}
+                📊 24h Change{getSortIndicator('24hChange')}
               </th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>1M</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>5M</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>30M</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>1H</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>3H</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>5H</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>8H</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>1D</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>3D</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>5D</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>8D</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>13D</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>1MO</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>3MO</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>5MO</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>8MO</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>13MO</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>1Y</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>3Y</th>
-              <th className="border-2 border-gray-300 px-2 py-3 text-xs font-bold uppercase tracking-wider" style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>5Y</th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ textAlign: 'right' }}>📊 Volume (M)</th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ textAlign: 'right' }}>🏦 Market Cap</th>
-              <th className="bg-gray-100 border-2 border-gray-300 px-2 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider" style={{ textAlign: 'center', width: '50px' }}>❌</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>1M</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>5M</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>30M</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>1H</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>3H</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>5H</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fef3c7', color: '#92400e' }}>8H</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>1D</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>3D</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>5D</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>8D</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dbeafe', color: '#1e40af' }}>13D</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>1MO</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>3MO</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>5MO</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#dcfce7', color: '#166534' }}>8MO</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>13MO</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>1Y</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>3Y</th>
+              <th className={`border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold uppercase tracking-wider`} style={{ textAlign: 'center', backgroundColor: '#fce7f3', color: '#be185d' }}>5Y</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ textAlign: 'right' }}>📊 Volume (M)</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ textAlign: 'right' }}>🏦 Market Cap</th>
+              <th className={`bg-gray-100 border-2 border-gray-300 ${TABLE_HEADER_PADDING} text-xs font-bold text-gray-700 uppercase tracking-wider`} style={{ textAlign: 'center', width: '50px' }}>❌</th>
             </tr>
           </thead>
           <tbody>
@@ -1853,20 +1940,22 @@ function StockMonitorComponent() {
               const equity = equityData[symbol]
               return (
                 <tr key={symbol}>
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs bg-gradient-to-r from-purple-500 to-purple-600">
                       {symbol.charAt(0)}
                     </div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs">
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`}>
                     <div>
                       <div className="text-xs font-bold text-gray-600">{symbol}</div>
                     </div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs">
-                    <div className="font-medium text-gray-900" style={{ fontSize: '10px' }}>{equity?.name || symbol}</div>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`}>
+                    <div className="font-medium text-gray-900" style={{ fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }} title={equity?.name || symbol}>
+                      {equity?.name && equity.name.length > 20 ? equity.name.substring(0, 20) + '...' : equity?.name || symbol}
+                    </div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ whiteSpace: 'nowrap' }}>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ whiteSpace: 'nowrap' }}>
                     <div className="text-xs text-blue-600 font-medium">
                       {(() => {
                         const exchangeInfo = getExchangeInfo(symbol)
@@ -1880,14 +1969,14 @@ function StockMonitorComponent() {
                       })()}
                     </div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                     <div className="text-sm font-bold text-gray-900">
                       {equity ? formatPrice(equity.price) : '--'}
                     </div>
                   </td>
 
                   {/* Pre-Market Column */}
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                  {/* <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                     {equity?.preMarketPrice ? (
                       <div className="text-xs">
                         <div className="font-bold text-blue-700">
@@ -1907,10 +1996,10 @@ function StockMonitorComponent() {
                     ) : (
                       <div className="text-gray-400 text-xs">--</div>
                     )}
-                  </td>
+                  </td> */}
 
                   {/* After-Hours Column */}
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                  {/* <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                     {equity?.postMarketPrice ? (
                       <div className="text-xs">
                         <div className="font-bold text-orange-700">
@@ -1930,39 +2019,27 @@ function StockMonitorComponent() {
                     ) : (
                       <div className="text-gray-400 text-xs">--</div>
                     )}
-                  </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    {(() => {
-                      const perf = performanceData[symbol]
-                      if (perf && perf.hasData && perf.percentChange !== null) {
-                        const isPositive = perf.percentChange >= 0
-                        const daysHeld = perf.earliestDate 
-                          ? Math.floor((new Date().getTime() - new Date(perf.earliestDate).getTime()) / (1000 * 60 * 60 * 24))
-                          : 0
-                        return (
-                          <div>
-                            <span className={`change-${isPositive ? 'positive' : 'negative'}-light`}>
-                              {isPositive ? (
-                                <>
-                                  <TrendingUp className="inline w-3 h-3 mr-1" />
-                                  +{perf.priceChange?.toFixed(2)} (+{perf.percentChange.toFixed(2)}%)
-                                </>
-                              ) : (
-                                <>
-                                  <TrendingDown className="inline w-3 h-3 mr-1" />
-                                  {perf.priceChange?.toFixed(2)} ({perf.percentChange.toFixed(2)}%)
-                                </>
-                              )}
-                            </span>
-                            <div className="text-xs text-gray-500 mt-1">
-                              Since {new Date(perf.earliestDate!).toLocaleDateString()} ({daysHeld}d)
-                            </div>
-                          </div>
-                        )
-                      } else {
-                        return <div className="text-gray-400 text-xs">No historical data</div>
-                      }
-                    })()}
+                  </td> */}
+
+                  {/* 24h Change Column */}
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                    {equity ? (
+                      <span className={`change-${equity.change >= 0 ? 'positive' : 'negative'}-light`}>
+                        {equity.change >= 0 ? (
+                          <>
+                            <TrendingUp className="inline mr-0.5" style={{ width: '8px', height: '8px', verticalAlign: 'top' }} />
+                            +{equity.change.toFixed(2)} (+{equity.changePercent.toFixed(2)}%)
+                          </>
+                        ) : (
+                          <>
+                            <TrendingDown className="inline mr-0.5" style={{ width: '8px', height: '8px', verticalAlign: 'top' }} />
+                            {equity.change.toFixed(2)} ({equity.changePercent.toFixed(2)}%)
+                          </>
+                        )}
+                      </span>
+                    ) : (
+                      <div className="text-gray-400 text-xs">Loading...</div>
+                    )}
                   </td>
 
                   {/* Performance Intervals */}
@@ -1971,7 +2048,7 @@ function StockMonitorComponent() {
                     return (
                       <td key={interval.id} className="interval-cell">
                         {intervalData ? (
-                          <span className={intervalData.change >= 0 ? 'interval-positive' : 'interval-negative'}>
+                          <span className={getIntervalColorClass(intervalData.changePercent)}>
                             {intervalData.change >= 0 ? '+' : ''}{intervalData.changePercent.toFixed(2)}%
                           </span>
                         ) : (
@@ -1983,17 +2060,17 @@ function StockMonitorComponent() {
                     )
                   })}
 
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                     <div className="text-xs text-gray-600">
                       {equity ? (equity.volume / 1000000).toFixed(1) + 'M' : '--'}
                     </div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'right' }}>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'right' }}>
                     <div className="text-xs font-medium text-gray-700">
                       {equity?.marketCap || '--'}
                     </div>
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+                  <td className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                     <button
                       onClick={() => removeEquity(symbol)}
                       className="text-red-500 hover:text-red-700 transition-colors"
@@ -2008,7 +2085,7 @@ function StockMonitorComponent() {
 
             {getSortedEquitySymbols().length === 0 && (
               <tr>
-                <td colSpan={31} className="border border-gray-300 px-2 py-2 text-xs" style={{ textAlign: 'center' }}>
+                <td colSpan={28} className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                   <div className="py-8 text-gray-500">
                     {isLoadingPortfolio
                       ? 'Loading portfolio from database...'
@@ -2117,3 +2194,4 @@ const Home = dynamic(() => Promise.resolve(() => <StockMonitorComponent />), {
 })
 
 export default Home
+

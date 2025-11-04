@@ -105,8 +105,7 @@ router.post('/portfolio', async (req, res) => {
         // Only set known values, use 'N/A' for unknown data that needs to be researched
         const isCanadianStock = cleanSymbol === 'TD' || cleanSymbol.includes('.TO')
 
-        const newStock: PortfolioStock = {
-            portfolio_id: parseInt(portfolio_id),
+        const stockData = {
             symbol: cleanSymbol,
             description: validationResult.name || `${cleanSymbol} Stock`,
             // Only set country if we can definitively determine it
@@ -120,17 +119,17 @@ router.post('/portfolio', async (req, res) => {
             industry: industry
         }
 
-        console.log(`📊 Prepared stock data for ${cleanSymbol} in portfolio ${portfolio_id}:`, newStock)
+        console.log(`📊 Prepared stock data for ${cleanSymbol} in portfolio ${portfolio_id}:`, stockData)
 
-        // Step 4: Add to database
-        const insertId = await databaseService.addPortfolioStock(newStock)
+        // Step 4: Add to database (creates stock if needed, then links to portfolio)
+        const insertId = await databaseService.addPortfolioStock(parseInt(portfolio_id), stockData)
 
         console.log(`✅ Added ${cleanSymbol} to portfolio database with ID: ${insertId}`)
 
         return res.status(201).json({
             success: true,
-            message: `Stock ${newStock.symbol} validated and added to portfolio`,
-            data: { ...newStock, id: insertId }
+            message: `Stock ${stockData.symbol} validated and added to portfolio`,
+            data: { ...stockData, id: insertId, portfolio_id: parseInt(portfolio_id) }
         })
 
     } catch (error) {
@@ -170,9 +169,10 @@ router.put('/portfolio/:portfolioId/:symbol', async (req, res) => {
         const { portfolioId, symbol } = req.params
         const updates = req.body
 
-        // Remove symbol and portfolio_id from updates to prevent modification
+        // Remove symbol and id from updates to prevent modification
         delete updates.symbol
         delete updates.id
+        delete updates.stock_id
         delete updates.portfolio_id
 
         if (Object.keys(updates).length === 0) {
@@ -182,18 +182,19 @@ router.put('/portfolio/:portfolioId/:symbol', async (req, res) => {
             })
         }
 
-        const updated = await databaseService.updatePortfolioStock(parseInt(portfolioId), symbol.toUpperCase(), updates)
+        // Update the stock metadata (not the portfolio relationship)
+        const updated = await databaseService.updateStock(symbol.toUpperCase(), updates)
 
         if (!updated) {
             return res.status(404).json({
                 success: false,
-                error: `Stock ${symbol} not found in portfolio ${portfolioId}`
+                error: `Stock ${symbol} not found`
             })
         }
 
         return res.json({
             success: true,
-            message: `Stock ${symbol} updated successfully`
+            message: `Stock ${symbol} metadata updated successfully`
         })
 
     } catch (error) {

@@ -3,6 +3,28 @@ import { StockQuote } from './dataProviders/BaseDataProvider'
 import { dataProviderManager } from './dataProviders/DataProviderManager'
 import { databaseService } from './databaseService'
 
+/**
+ * Check if current time is within market hours (before 4:30 PM ET)
+ */
+function isMarketHours(): boolean {
+    const now = new Date()
+    // Convert to ET timezone
+    const etTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }))
+    const hours = etTime.getHours()
+    const minutes = etTime.getMinutes()
+    const dayOfWeek = etTime.getDay() // 0 = Sunday, 6 = Saturday
+    
+    // Skip weekends
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return false
+    }
+    
+    const currentTimeMinutes = hours * 60 + minutes
+    const marketCloseMinutes = 16 * 60 + 30 // 4:30 PM ET
+    
+    return currentTimeMinutes < marketCloseMinutes
+}
+
 export interface StockData {
     symbol: string
     name: string
@@ -242,6 +264,12 @@ class EnhancedStockPriceService {
         if (this.useRealPrices) {
             // Real price mode: Update sample stocks every 30 seconds
             this.priceUpdateJob = cron.schedule('*/30 * * * * *', async () => {
+                // Check if we're within market hours
+                if (!isMarketHours()) {
+                    console.log('⏰ Market closed - skipping Yahoo Finance price update (after 4:30 PM ET or weekend)')
+                    return
+                }
+
                 const sampleSymbols = Object.keys(this.stockDatabase).filter(
                     symbol => symbol !== 'BTC' && !this.subscribedEquities.has(symbol)
                 )
@@ -406,6 +434,12 @@ class EnhancedStockPriceService {
             // Update subscribed equities every 10 seconds with real provider data
             this.equityUpdateJob = cron.schedule('*/10 * * * * *', async () => {
                 if (this.subscribedEquities.size === 0) return
+
+                // Check if we're within market hours
+                if (!isMarketHours()) {
+                    console.log('⏰ Market closed - skipping Yahoo Finance equity update (after 4:30 PM ET or weekend)')
+                    return
+                }
 
                 const symbols = Array.from(this.subscribedEquities)
 

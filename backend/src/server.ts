@@ -7,29 +7,32 @@ import { setupRoutes } from './routes'
 import ocrRoutes from './routes/ocrRoutes'
 import portfolioRoutes from './routes/portfolioRoutes'
 import portfolioManagementRoutes from './routes/portfolioManagementRoutes'
+import preferencesRoutes from './routes/preferencesRoutes'
 import userRoutes from './routes/userRoutes'
 import { databaseService } from './services/databaseService'
 import { enhancedStockPriceService as stockPriceService } from './services/enhancedStockPriceService'
 
 dotenv.config()
 
-// Configuration for real vs simulated prices
+// Configuration
 const USE_REAL_PRICES = process.env.USE_REAL_PRICES !== 'false' // Default to true
+const PORT = process.env.PORT || 4000
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+    : ['http://localhost:3000', 'http://127.0.0.1:3000']
 
 const app = express()
 const server = createServer(app)
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        origin: ALLOWED_ORIGINS,
         methods: ["GET", "POST"]
     }
 })
 
-const PORT = process.env.PORT || 4000
-
 // Middleware
 app.use(cors({
-    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    origin: ALLOWED_ORIGINS,
     credentials: true
 }))
 app.use(express.json())
@@ -167,6 +170,7 @@ app.use('/api', ocrRoutes)
 app.use('/api', userRoutes)
 app.use('/api', portfolioManagementRoutes)
 app.use('/api', portfolioRoutes)
+app.use(preferencesRoutes)
 
 // Routes
 setupRoutes(app)

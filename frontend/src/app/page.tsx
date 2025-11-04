@@ -283,7 +283,7 @@ interface User {
   email?: string
 }
 
-interface Portfolio {
+interface Watchlist {
   id: number
   user_id: number
   name: string
@@ -296,15 +296,15 @@ function StockMonitorComponent() {
   const [connected, setConnected] = useState(false)
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([])
 
-  // User and Portfolio management
+  // User and Watchlist management
   const [users, setUsers] = useState<User[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
-  const [currentPortfolio, setCurrentPortfolio] = useState<Portfolio | null>(null)
+  const [Watchlists, setWatchlists] = useState<Watchlist[]>([])
+  const [currentWatchlist, setCurrentWatchlist] = useState<Watchlist | null>(null)
   const [showUserModal, setShowUserModal] = useState(false)
-  const [showPortfolioModal, setShowPortfolioModal] = useState(false)
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false)
   const [newUsername, setNewUsername] = useState('')
-  const [newPortfolioName, setNewPortfolioName] = useState('')
+  const [newWatchlistName, setNewWatchlistName] = useState('')
 
   // Equity state management
   const [equityData, setEquityData] = useState<Record<string, EquityData>>({})
@@ -315,7 +315,7 @@ function StockMonitorComponent() {
   const [equityPriceHistory, setEquityPriceHistory] = useState<Record<string, PricePoint[]>>({})
   const [useRealPrices, setUseRealPrices] = useState(true)
   const [socket, setSocket] = useState<any>(null)
-  const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(true)
+  const [isLoadingWatchlist, setIsLoadingWatchlist] = useState(true)
   const [performanceData, setPerformanceData] = useState<Record<string, {
     percentChange: number | null
     priceChange: number | null
@@ -466,74 +466,74 @@ function StockMonitorComponent() {
     }
   }, [])
 
-  // Load portfolios when user changes and restore last viewed portfolio
+  // Load Watchlists when user changes and restore last viewed Watchlist
   useEffect(() => {
     if (!currentUser) return
 
-    const loadPortfolios = async () => {
+    const loadWatchlists = async () => {
       try {
-        const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO_BY_USER(currentUser.id))
+        const response = await fetch(API_CONFIG.ENDPOINTS.Watchlist_BY_USER(currentUser.id))
         if (response.ok) {
           const data = await response.json()
-          setPortfolios(data.data)
+          setWatchlists(data.data)
           
-          // Try to restore last viewed portfolio for this user
-          if (currentUser.last_viewed_portfolio_id) {
-            const lastPortfolio = data.data.find((p: Portfolio) => p.id === currentUser.last_viewed_portfolio_id)
-            if (lastPortfolio) {
-              console.log(`💾 Restored last viewed portfolio: ${lastPortfolio.name}`)
-              setCurrentPortfolio(lastPortfolio)
+          // Try to restore last viewed Watchlist for this user
+          if (currentUser.last_viewed_Watchlist_id) {
+            const lastWatchlist = data.data.find((p: Watchlist) => p.id === currentUser.last_viewed_Watchlist_id)
+            if (lastWatchlist) {
+              console.log(`💾 Restored last viewed Watchlist: ${lastWatchlist.name}`)
+              setCurrentWatchlist(lastWatchlist)
               return
             }
           }
           
-          // Fallback: Auto-select first portfolio if no last viewed found
+          // Fallback: Auto-select first Watchlist if no last viewed found
           if (data.data.length > 0) {
-            setCurrentPortfolio(data.data[0])
+            setCurrentWatchlist(data.data[0])
           } else {
-            setCurrentPortfolio(null)
+            setCurrentWatchlist(null)
           }
         }
       } catch (error) {
-        console.error('❌ Error loading portfolios:', error)
+        console.error('❌ Error loading Watchlists:', error)
       }
     }
-    loadPortfolios()
+    loadWatchlists()
   }, [currentUser])
 
-  // Load portfolio stocks from database
+  // Load Watchlist stocks from database
   useEffect(() => {
-    const loadPortfolio = async () => {
-      if (!currentPortfolio) {
+    const loadWatchlist = async () => {
+      if (!currentWatchlist) {
         setSubscribedEquities([])
-        setIsLoadingPortfolio(false)
+        setIsLoadingWatchlist(false)
         setPerformanceData({})
         return
       }
 
       try {
-        setIsLoadingPortfolio(true)
-        console.log('🔄 Loading portfolio from database...')
+        setIsLoadingWatchlist(true)
+        console.log('🔄 Loading Watchlist from database...')
 
-        const response = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO}?portfolio_id=${currentPortfolio.id}`)
-        console.log('📡 Portfolio API response status:', response.status)
+        const response = await fetch(`${API_CONFIG.ENDPOINTS.Watchlist}?Watchlist_id=${currentWatchlist.id}`)
+        console.log('📡 Watchlist API response status:', response.status)
 
         if (response.ok) {
           const data = await response.json()
-          console.log('📊 Portfolio API response data:', data)
+          console.log('📊 Watchlist API response data:', data)
           const symbols = data.data.map((stock: any) => stock.symbol)
-          console.log('✅ Loaded portfolio from database:', symbols)
+          console.log('✅ Loaded Watchlist from database:', symbols)
 
-          // Set the actual portfolio symbols - even if empty array
+          // Set the actual Watchlist symbols - even if empty array
           setSubscribedEquities(symbols)
 
           if (symbols.length === 0) {
-            console.log('📝 Portfolio is empty - no stocks to track')
+            console.log('📝 Watchlist is empty - no stocks to track')
           }
 
           // Load performance data
           console.log('📊 Loading performance data...')
-          const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO_PERFORMANCE}?portfolio_id=${currentPortfolio.id}`)
+          const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.Watchlist_PERFORMANCE}?Watchlist_id=${currentWatchlist.id}`)
           if (perfResponse.ok) {
             const perfData = await perfResponse.json()
             console.log('✅ Performance data loaded:', perfData)
@@ -552,35 +552,35 @@ function StockMonitorComponent() {
             setPerformanceData(perfMap)
           }
         } else {
-          console.error('❌ Failed to load portfolio:', response.status, response.statusText)
+          console.error('❌ Failed to load Watchlist:', response.status, response.statusText)
           // Set to empty array if API fails - no fallback defaults
-          console.log('🔄 Setting empty portfolio due to API failure')
+          console.log('🔄 Setting empty Watchlist due to API failure')
           setSubscribedEquities([])
           setPerformanceData({})
         }
       } catch (error) {
-        console.error('❌ Error loading portfolio:', error)
+        console.error('❌ Error loading Watchlist:', error)
         // Set to empty array if error occurs - no fallback defaults
-        console.log('🔄 Setting empty portfolio due to error')
+        console.log('🔄 Setting empty Watchlist due to error')
         setSubscribedEquities([])
         setPerformanceData({})
       } finally {
-        setIsLoadingPortfolio(false)
-        console.log('✅ Portfolio loading completed')
+        setIsLoadingWatchlist(false)
+        console.log('✅ Watchlist loading completed')
       }
     }
 
-    loadPortfolio()
-  }, [currentPortfolio])
+    loadWatchlist()
+  }, [currentWatchlist])
 
   // Periodically refresh performance data and interval data to show live % changes
   useEffect(() => {
-    if (!currentPortfolio) return
+    if (!currentWatchlist) return
 
     const refreshPerformance = async () => {
       try {
         // Fetch performance data (Total % Change column)
-        const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO_PERFORMANCE}?portfolio_id=${currentPortfolio.id}`)
+        const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.Watchlist_PERFORMANCE}?Watchlist_id=${currentWatchlist.id}`)
         if (perfResponse.ok) {
           const perfData = await perfResponse.json()
           
@@ -600,7 +600,7 @@ function StockMonitorComponent() {
         }
 
         // Fetch interval data (1M, 5M, 30M, 1H, 3D, 5D, etc. columns)
-        const intervalResponse = await fetch(`${API_CONFIG.ENDPOINTS.PORTFOLIO_INTERVALS}?portfolio_id=${currentPortfolio.id}`)
+        const intervalResponse = await fetch(`${API_CONFIG.ENDPOINTS.Watchlist_INTERVALS}?Watchlist_id=${currentWatchlist.id}`)
         if (intervalResponse.ok) {
           const intervalDataResponse = await intervalResponse.json()
           
@@ -623,13 +623,13 @@ function StockMonitorComponent() {
     // Refresh data every 30 seconds (matches price recording interval)
     const intervalId = setInterval(refreshPerformance, 30000)
 
-    // Cleanup on unmount or portfolio change
+    // Cleanup on unmount or Watchlist change
     return () => clearInterval(intervalId)
-  }, [currentPortfolio])
+  }, [currentWatchlist])
 
   useEffect(() => {
-    // Only connect WebSocket after portfolio is loaded
-    if (isLoadingPortfolio || subscribedEquities.length === 0) {
+    // Only connect WebSocket after Watchlist is loaded
+    if (isLoadingWatchlist || subscribedEquities.length === 0) {
       return
     }
 
@@ -693,7 +693,7 @@ function StockMonitorComponent() {
     return () => {
       socketConnection.disconnect()
     }
-  }, [subscribedEquities, isLoadingPortfolio])
+  }, [subscribedEquities, isLoadingWatchlist])
 
   const formatPrice = (price: number) => {
     return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -892,24 +892,24 @@ function StockMonitorComponent() {
       // All symbols are valid, add them
       const validSymbols = validResults.map(r => r.symbol)
 
-      // Check if portfolio is selected
-      if (!currentPortfolio) {
-        setValidationError('Please select a portfolio first')
+      // Check if Watchlist is selected
+      if (!currentWatchlist) {
+        setValidationError('Please select a Watchlist first')
         return
       }
 
       // Add stocks to database
       try {
         const addPromises = validSymbols.map(async (symbol) => {
-          console.log(`🔍 Adding ${symbol} to portfolio via API...`)
-          const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO, {
+          console.log(`🔍 Adding ${symbol} to Watchlist via API...`)
+          const response = await fetch(API_CONFIG.ENDPOINTS.Watchlist, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               symbol,
-              portfolio_id: currentPortfolio.id
+              Watchlist_id: currentWatchlist.id
             }),
           })
 
@@ -955,11 +955,11 @@ function StockMonitorComponent() {
   }
 
   const removeEquity = async (symbol: string) => {
-    if (!currentPortfolio) return
+    if (!currentWatchlist) return
 
     // Remove from database first
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/portfolio/${currentPortfolio.id}/${symbol}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/Watchlist/${currentWatchlist.id}/${symbol}`, {
         method: 'DELETE',
       })
       if (response.ok) {
@@ -1049,8 +1049,8 @@ function StockMonitorComponent() {
   }
 
   const addStockFromOCR = async (stock: any) => {
-    if (!currentPortfolio) {
-      setValidationError('Please select a portfolio first')
+    if (!currentWatchlist) {
+      setValidationError('Please select a Watchlist first')
       return
     }
 
@@ -1060,20 +1060,20 @@ function StockMonitorComponent() {
     }
 
     if (subscribedEquities.includes(stock.symbol)) {
-      setValidationError(`${stock.symbol} is already in your portfolio`)
+      setValidationError(`${stock.symbol} is already in your Watchlist`)
       return
     }
 
     // Add to database
     try {
-      const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO, {
+      const response = await fetch(API_CONFIG.ENDPOINTS.Watchlist, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           symbol: stock.symbol,
-          portfolio_id: currentPortfolio.id,
+          Watchlist_id: currentWatchlist.id,
           description: `Added via OCR: ${stock.description || ''}`,
           country: stock.country || 'US',
           market: stock.market || 'NASDAQ'
@@ -1087,7 +1087,7 @@ function StockMonitorComponent() {
       // Continue anyway since local state still works
     }
 
-    // Add to portfolio
+    // Add to Watchlist
     const updatedEquities = [...subscribedEquities, stock.symbol]
     setSubscribedEquities(updatedEquities)
 
@@ -1096,12 +1096,12 @@ function StockMonitorComponent() {
       socket.emit('subscribeEquities', { symbols: [stock.symbol] })
     }
 
-    console.log(`Added ${stock.symbol} to portfolio from OCR`)
+    console.log(`Added ${stock.symbol} to Watchlist from OCR`)
   }
 
   const addAllValidStocksFromOCR = async () => {
-    if (!currentPortfolio) {
-      setValidationError('Please select a portfolio first')
+    if (!currentWatchlist) {
+      setValidationError('Please select a Watchlist first')
       return
     }
 
@@ -1119,14 +1119,14 @@ function StockMonitorComponent() {
     // Add all stocks to database
     try {
       const addPromises = validStocks.map(async (stock: any) => {
-        const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIO, {
+        const response = await fetch(API_CONFIG.ENDPOINTS.Watchlist, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             symbol: stock.symbol,
-            portfolio_id: currentPortfolio.id,
+            Watchlist_id: currentWatchlist.id,
             description: `Added via OCR: ${stock.description || ''}`,
             country: stock.country || 'US',
             market: stock.market || 'NASDAQ'
@@ -1151,7 +1151,7 @@ function StockMonitorComponent() {
       socket.emit('subscribeEquities', { symbols: newSymbols })
     }
 
-    console.log(`Added ${newSymbols.length} stocks to portfolio from OCR:`, newSymbols)
+    console.log(`Added ${newSymbols.length} stocks to Watchlist from OCR:`, newSymbols)
     setShowOcrResults(false)
     setOcrResults(null)
     setSelectedFile(null)
@@ -1304,41 +1304,41 @@ function StockMonitorComponent() {
     }
   }
 
-  // Portfolio management functions
-  const createPortfolio = async () => {
+  // Watchlist management functions
+  const createWatchlist = async () => {
     if (!currentUser) {
       setValidationError('Please select a user first')
       return
     }
 
-    if (!newPortfolioName.trim()) {
-      setValidationError('Please enter a portfolio name')
+    if (!newWatchlistName.trim()) {
+      setValidationError('Please enter a Watchlist name')
       return
     }
 
     try {
-      const response = await fetch(API_CONFIG.ENDPOINTS.PORTFOLIOS, {
+      const response = await fetch(API_CONFIG.ENDPOINTS.WatchlistS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: currentUser.id,
-          name: newPortfolioName.trim()
+          name: newWatchlistName.trim()
         })
       })
 
       if (response.ok) {
         const data = await response.json()
-        setPortfolios([...portfolios, data.data])
-        setCurrentPortfolio(data.data)
-        setNewPortfolioName('')
-        setShowPortfolioModal(false)
+        setWatchlists([...Watchlists, data.data])
+        setCurrentWatchlist(data.data)
+        setNewWatchlistName('')
+        setShowWatchlistModal(false)
       } else {
         const error = await response.json()
-        setValidationError(error.error || 'Failed to create portfolio')
+        setValidationError(error.error || 'Failed to create Watchlist')
       }
     } catch (error) {
-      console.error('Error creating portfolio:', error)
-      setValidationError('Failed to create portfolio')
+      console.error('Error creating Watchlist:', error)
+      setValidationError('Failed to create Watchlist')
     }
   }
 
@@ -1394,7 +1394,7 @@ function StockMonitorComponent() {
           </div>
         </div>
 
-        {/* User and Portfolio Selection */}
+        {/* User and Watchlist Selection */}
         <div className="px-6 py-3 bg-gradient-to-r from-indigo-100 to-indigo-200 border-b-2 border-gray-300">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -1436,37 +1436,37 @@ function StockMonitorComponent() {
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="text-sm font-bold text-indigo-900">📁 Portfolio:</label>
+              <label className="text-sm font-bold text-indigo-900">📁 Watchlist:</label>
               <select
-                value={currentPortfolio?.id || ''}
+                value={currentWatchlist?.id || ''}
                 onChange={async (e) => {
-                  const portfolio = portfolios.find(p => p.id === parseInt(e.target.value))
-                  setCurrentPortfolio(portfolio || null)
+                  const Watchlist = Watchlists.find(p => p.id === parseInt(e.target.value))
+                  setCurrentWatchlist(Watchlist || null)
                   
-                  // Save portfolio preference to user's last_viewed_portfolio_id
-                  if (portfolio && currentUser) {
+                  // Save Watchlist preference to user's last_viewed_Watchlist_id
+                  if (Watchlist && currentUser) {
                     try {
-                      await fetch(`${API_CONFIG.BASE_URL}/api/users/${currentUser.id}/last-portfolio`, {
+                      await fetch(`${API_CONFIG.BASE_URL}/api/users/${currentUser.id}/last-Watchlist`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ portfolio_id: portfolio.id })
+                        body: JSON.stringify({ Watchlist_id: Watchlist.id })
                       })
-                      console.log(`💾 Saved portfolio preference: ${portfolio.name}`)
+                      console.log(`💾 Saved Watchlist preference: ${Watchlist.name}`)
                     } catch (error) {
-                      console.error('❌ Error saving portfolio preference:', error)
+                      console.error('❌ Error saving Watchlist preference:', error)
                     }
                   }
                 }}
                 className="px-3 py-1 border-2 border-indigo-400 rounded-md text-sm font-medium bg-white"
                 disabled={!currentUser}
               >
-                <option value="">Select Portfolio</option>
-                {portfolios.map(portfolio => (
-                  <option key={portfolio.id} value={portfolio.id}>{portfolio.name}</option>
+                <option value="">Select Watchlist</option>
+                {Watchlists.map(Watchlist => (
+                  <option key={Watchlist.id} value={Watchlist.id}>{Watchlist.name}</option>
                 ))}
               </select>
               <button
-                onClick={() => setShowPortfolioModal(true)}
+                onClick={() => setShowWatchlistModal(true)}
                 disabled={!currentUser}
                 className={`px-3 py-1 text-white border-2 rounded-md text-sm font-bold ${
                   currentUser 
@@ -1474,13 +1474,13 @@ function StockMonitorComponent() {
                     : 'bg-gray-400 border-gray-300 cursor-not-allowed'
                 }`}
               >
-                + New Portfolio
+                + New Watchlist
               </button>
             </div>
 
-            {currentPortfolio && (
+            {currentWatchlist && (
               <div className="ml-auto text-sm font-bold text-indigo-900">
-                📊 {currentUser?.username} / {currentPortfolio.name} ({subscribedEquities.length} stocks)
+                📊 {currentUser?.username} / {currentWatchlist.name} ({subscribedEquities.length} stocks)
               </div>
             )}
           </div>
@@ -1845,7 +1845,7 @@ function StockMonitorComponent() {
                       onClick={() => addStockFromOCR(stock)}
                       className="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                     >
-                      Add to Portfolio
+                      Add to Watchlist
                     </button>
                   )}
 
@@ -2087,8 +2087,8 @@ function StockMonitorComponent() {
               <tr>
                 <td colSpan={28} className={`border border-gray-300 ${TABLE_DATA_PADDING} text-xs`} style={{ textAlign: 'center' }}>
                   <div className="py-8 text-gray-500">
-                    {isLoadingPortfolio
-                      ? 'Loading portfolio from database...'
+                    {isLoadingWatchlist
+                      ? 'Loading Watchlist from database...'
                       : 'No equities subscribed. Add securities using the input above.'
                     }
                   </div>
@@ -2139,21 +2139,21 @@ function StockMonitorComponent() {
         </div>
       )}
 
-      {/* Create Portfolio Modal */}
-      {showPortfolioModal && (
+      {/* Create Watchlist Modal */}
+      {showWatchlistModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 border-2 border-indigo-400">
-            <h2 className="text-xl font-bold text-indigo-900 mb-4">📁 Create New Portfolio</h2>
+            <h2 className="text-xl font-bold text-indigo-900 mb-4">📁 Create New Watchlist</h2>
             <div className="mb-4 text-sm text-gray-600">
               User: <span className="font-bold">{currentUser?.username}</span>
             </div>
             <input
               type="text"
-              value={newPortfolioName}
-              onChange={(e) => setNewPortfolioName(e.target.value)}
-              placeholder="Enter portfolio name"
+              value={newWatchlistName}
+              onChange={(e) => setNewWatchlistName(e.target.value)}
+              placeholder="Enter Watchlist name"
               className="w-full px-3 py-2 border-2 border-gray-300 rounded-md mb-4"
-              onKeyPress={(e) => e.key === 'Enter' && createPortfolio()}
+              onKeyPress={(e) => e.key === 'Enter' && createWatchlist()}
             />
             {validationError && (
               <div className="mb-4 text-sm text-red-600 font-medium">
@@ -2163,8 +2163,8 @@ function StockMonitorComponent() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => {
-                  setShowPortfolioModal(false)
-                  setNewPortfolioName('')
+                  setShowWatchlistModal(false)
+                  setNewWatchlistName('')
                   setValidationError('')
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md font-bold hover:bg-gray-400"
@@ -2172,10 +2172,10 @@ function StockMonitorComponent() {
                 Cancel
               </button>
               <button
-                onClick={createPortfolio}
+                onClick={createWatchlist}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md font-bold hover:bg-indigo-700"
               >
-                Create Portfolio
+                Create Watchlist
               </button>
             </div>
           </div>
@@ -2194,4 +2194,5 @@ const Home = dynamic(() => Promise.resolve(() => <StockMonitorComponent />), {
 })
 
 export default Home
+
 

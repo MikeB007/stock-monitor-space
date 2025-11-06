@@ -54,13 +54,27 @@ After setting up the database, restart your backend server:
 2. Run: `npm run dev`
 3. Look for: `✅ Database initialized successfully!`
 
+## Database Tables (Auto-Created)
+The backend automatically creates these tables on first startup:
+
+### Core Tables
+- **`users`**: User accounts and profiles
+- **`watchlists`**: User-created watchlists
+- **`watchlist_stocks`**: Stocks in each watchlist
+- **`stocks`**: Stock information and metadata
+- **`stock_prices_history`**: Historical price data
+
+### Settings Tables
+- **`user_settings`**: Per-user preferences (color scheme)
+- **`user_preferences`**: Browser-level preferences (last viewed user)
+
 ## Expected Success Messages
 When the database is properly configured, you should see:
 ```
 🗄️  Connecting to MySQL database...
-✅ Database connection successful
-✅ Tables initialized: Watchlist_stocks, stock_prices_history  
-✅ Default Watchlist stocks added
+✅ Connected to MySQL database successfully
+📊 Creating database tables...
+✅ Database tables created successfully
 ✅ Database initialized successfully!
 🗄️  MySQL Watchlist Management: Enabled
 ```

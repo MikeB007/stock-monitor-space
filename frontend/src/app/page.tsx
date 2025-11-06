@@ -96,7 +96,7 @@ const getExchangeInfo = (symbol: string) => {
     '.V': { exchange: 'TSXV', country: 'Canada', flag: '🇨🇦' },
     '.CN': { exchange: 'CSE', country: 'Canada', flag: '🇨🇦' },
     '.NE': { exchange: 'NEO', country: 'Canada', flag: '🇨🇦' },
-    
+
     // European Markets
     '.L': { exchange: 'LSE', country: 'UK', flag: '🇬🇧' },
     '.PA': { exchange: 'Euronext Paris', country: 'France', flag: '🇫🇷' },
@@ -104,12 +104,12 @@ const getExchangeInfo = (symbol: string) => {
     '.BR': { exchange: 'Euronext Brussels', country: 'Belgium', flag: '🇧🇪' },
     '.DE': { exchange: 'XETRA', country: 'Germany', flag: '🇩🇪' },
     '.F': { exchange: 'Frankfurt', country: 'Germany', flag: '🇩🇪' },
-    
+
     // Asia-Pacific Markets
     '.HK': { exchange: 'HKEX', country: 'Hong Kong', flag: '🇭🇰' },
     '.T': { exchange: 'TSE', country: 'Japan', flag: '🇯🇵' },
     '.AX': { exchange: 'ASX', country: 'Australia', flag: '🇦🇺' },
-    
+
     // Other Markets
     '.SA': { exchange: 'B3', country: 'Brazil', flag: '🇧🇷' },
     '.MC': { exchange: 'BME', country: 'Spain', flag: '🇪🇸' },
@@ -155,11 +155,11 @@ const getExchangeInfo = (symbol: string) => {
     const hash = symbol.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
     const firstChar = symbol.charAt(0)
     const lastChar = symbol.charAt(symbol.length - 1)
-    
+
     // IMPROVED LOGIC: Most clean symbols (no suffix) are US-primary listings
     // This includes: AAPL, MSFT, GOOGL, TD, SHOP, etc.
     // Only apply geographic distribution to symbols that aren't obviously US stocks
-    
+
     // Common US stock patterns - default to US markets
     const isLikelyUSStock = (
       // 1-5 character clean symbols are typically US (AAPL, MSFT, TD, etc.)
@@ -169,7 +169,7 @@ const getExchangeInfo = (symbol: string) => {
       // Tech company patterns
       symbol.includes('META') || symbol.includes('GOOGL') || symbol.includes('AMZN')
     )
-    
+
     if (isLikelyUSStock) {
       // Distribute among major US exchanges based on symbol characteristics
       const usExchanges = [
@@ -180,7 +180,7 @@ const getExchangeInfo = (symbol: string) => {
         { name: 'IEX', weight: 2 },        // Investor Exchange
         { name: 'ARCA', weight: 1 }        // Archipelago
       ]
-      
+
       let weightedIndex = hash % 100
       for (const exchange of usExchanges) {
         weightedIndex -= exchange.weight
@@ -190,7 +190,7 @@ const getExchangeInfo = (symbol: string) => {
       }
       return { exchange: 'NYSE', country: 'USA', flag: '🇺🇸' }
     }
-    
+
     // Detect potential OTC symbols (often have unusual patterns)
     const isLikelyOTC = symbol.length >= 4 && (
       symbol.endsWith('F') || // Many foreign OTC stocks end in F
@@ -198,12 +198,12 @@ const getExchangeInfo = (symbol: string) => {
       /[0-9]/.test(symbol) ||  // Some OTC have numbers
       symbol.length > 5        // Very long symbols often OTC
     )
-    
+
     if (isLikelyOTC) {
       const otcMarkets = ['OTCQX', 'OTCQB', 'Pink Sheets', 'Grey Market']
       const otcWeights = [30, 25, 35, 10]
       let weightedIndex = hash % 100
-      
+
       for (let i = 0; i < otcWeights.length; i++) {
         weightedIndex -= otcWeights[i]
         if (weightedIndex <= 0) {
@@ -212,7 +212,7 @@ const getExchangeInfo = (symbol: string) => {
       }
       return { exchange: 'OTCQX', country: 'USA', flag: '🇺🇸' }
     }
-    
+
     // For non-US stocks or unusual symbols, distribute globally
     // This handles international symbols, unusual patterns, etc.
     const exchanges = [
@@ -225,7 +225,7 @@ const getExchangeInfo = (symbol: string) => {
       { name: 'BME', country: 'Spain', flag: '�🇸', weight: 2 },
       { name: 'Stockholm', country: 'Sweden', flag: '🇪', weight: 1 },
       { name: 'Oslo Børs', country: 'Norway', flag: '��', weight: 1 },
-      
+
       // Asia-Pacific (35%)
       { name: 'Tokyo', country: 'Japan', flag: '🇯🇵', weight: 12 },
       { name: 'Shanghai', country: 'China', flag: '��', weight: 8 },
@@ -234,12 +234,12 @@ const getExchangeInfo = (symbol: string) => {
       { name: 'BSE', country: 'India', flag: '🇮🇳', weight: 3 },
       { name: 'SGX', country: 'Singapore', flag: '��', weight: 1 },
       { name: 'KOSPI', country: 'South Korea', flag: '🇰🇷', weight: 1 },
-      
+
       // North America Non-US (20%)  
       { name: 'TSX', country: 'Canada', flag: '🇨🇦', weight: 15 },
       { name: 'TSX-V', country: 'Canada', flag: '🇨�', weight: 3 },
       { name: 'BMV', country: 'Mexico', flag: '🇲🇽', weight: 2 },
-      
+
       // Emerging Markets (10%)
       { name: 'Bovespa', country: 'Brazil', flag: '��', weight: 4 },
       { name: 'JSE', country: 'South Africa', flag: '��', weight: 2 },
@@ -247,10 +247,10 @@ const getExchangeInfo = (symbol: string) => {
       { name: 'SET', country: 'Thailand', flag: '��', weight: 1 },
       { name: 'EGX', country: 'Egypt', flag: '🇪🇬', weight: 1 }
     ]
-    
+
     // Weighted selection based on global market distribution
     let weightedIndex = hash % 100
-    
+
     for (const exchange of exchanges) {
       weightedIndex -= exchange.weight
       if (weightedIndex <= 0) {
@@ -261,11 +261,11 @@ const getExchangeInfo = (symbol: string) => {
         }
       }
     }
-    
+
     // Fallback to NYSE
     return { exchange: 'NYSE', country: 'USA', flag: '🇺🇸' }
   }
-  
+
   const globalExchange = getGlobalExchange(symbolUpper)
 
   return {
@@ -355,7 +355,7 @@ function StockMonitorComponent() {
     } else {
       // Graded: Every 3% changes intensity
       if (changePercent === 0) return 'interval-neutral'
-      
+
       const absPercent = Math.abs(changePercent)
       if (changePercent > 0) {
         // Green grading
@@ -390,7 +390,7 @@ function StockMonitorComponent() {
       const userId = localStorage.getItem('currentUserId')
       if (userId) {
         try {
-          const response = await fetch(API_CONFIG.ENDPOINTS.PREFERENCES(parseInt(userId)))
+          const response = await fetch(API_CONFIG.ENDPOINTS.USER_PREFERENCES(parseInt(userId)))
           if (response.ok) {
             const prefs = await response.json()
             if (prefs && prefs.color_scheme) {
@@ -425,28 +425,28 @@ function StockMonitorComponent() {
         if (response.ok) {
           const data = await response.json()
           setUsers(data.data)
-          
+
           // Try to restore last viewed user from preferences
           const browserId = getBrowserId()
           const prefsResponse = await fetch(API_CONFIG.ENDPOINTS.USER_PREFERENCES(browserId))
-          
+
           if (prefsResponse.ok) {
             const prefsData = await prefsResponse.json()
             const lastUserId = prefsData.data.last_viewed_user_id
-            
+
             if (lastUserId) {
               const lastUser = data.data.find((u: User) => u.id === lastUserId)
               if (lastUser) {
                 console.log(`💾 Restored last viewed user: ${lastUser.username}`)
                 setCurrentUser(lastUser)
-                
+
                 // Store current user ID for settings page
                 localStorage.setItem('currentUserId', lastUserId.toString())
                 return
               }
             }
           }
-          
+
           // Fallback: Auto-select first user if no preferences found
           if (data.data.length > 0) {
             setCurrentUser(data.data[0])
@@ -458,7 +458,7 @@ function StockMonitorComponent() {
       }
     }
     loadUsers()
-    
+
     // Load color scheme preference from localStorage
     const savedColorScheme = localStorage.getItem('colorScheme')
     if (savedColorScheme === 'standard' || savedColorScheme === 'graded') {
@@ -476,7 +476,7 @@ function StockMonitorComponent() {
         if (response.ok) {
           const data = await response.json()
           setWatchlists(data.data)
-          
+
           // Try to restore last viewed Watchlist for this user
           if (currentUser.last_viewed_Watchlist_id) {
             const lastWatchlist = data.data.find((p: Watchlist) => p.id === currentUser.last_viewed_Watchlist_id)
@@ -486,7 +486,7 @@ function StockMonitorComponent() {
               return
             }
           }
-          
+
           // Fallback: Auto-select first Watchlist if no last viewed found
           if (data.data.length > 0) {
             setCurrentWatchlist(data.data[0])
@@ -537,7 +537,7 @@ function StockMonitorComponent() {
           if (perfResponse.ok) {
             const perfData = await perfResponse.json()
             console.log('✅ Performance data loaded:', perfData)
-            
+
             // Convert array to object keyed by symbol
             const perfMap: Record<string, any> = {}
             perfData.data.forEach((perf: any) => {
@@ -583,7 +583,7 @@ function StockMonitorComponent() {
         const perfResponse = await fetch(`${API_CONFIG.ENDPOINTS.Watchlist_PERFORMANCE}?Watchlist_id=${currentWatchlist.id}`)
         if (perfResponse.ok) {
           const perfData = await perfResponse.json()
-          
+
           // Convert array to object keyed by symbol
           const perfMap: Record<string, any> = {}
           perfData.data.forEach((perf: any) => {
@@ -603,7 +603,7 @@ function StockMonitorComponent() {
         const intervalResponse = await fetch(`${API_CONFIG.ENDPOINTS.Watchlist_INTERVALS}?Watchlist_id=${currentWatchlist.id}`)
         if (intervalResponse.ok) {
           const intervalDataResponse = await intervalResponse.json()
-          
+
           // Convert array to object keyed by symbol
           const intervalMap: Record<string, any> = {}
           intervalDataResponse.data.forEach((stock: any) => {
@@ -1404,7 +1404,7 @@ function StockMonitorComponent() {
                 onChange={async (e) => {
                   const user = users.find(u => u.id === parseInt(e.target.value))
                   setCurrentUser(user || null)
-                  
+
                   // Save user preference to database
                   if (user) {
                     const browserId = getBrowserId()
@@ -1442,7 +1442,7 @@ function StockMonitorComponent() {
                 onChange={async (e) => {
                   const Watchlist = Watchlists.find(p => p.id === parseInt(e.target.value))
                   setCurrentWatchlist(Watchlist || null)
-                  
+
                   // Save Watchlist preference to user's last_viewed_Watchlist_id
                   if (Watchlist && currentUser) {
                     try {
@@ -1468,11 +1468,10 @@ function StockMonitorComponent() {
               <button
                 onClick={() => setShowWatchlistModal(true)}
                 disabled={!currentUser}
-                className={`px-3 py-1 text-white border-2 rounded-md text-sm font-bold ${
-                  currentUser 
-                    ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-700' 
+                className={`px-3 py-1 text-white border-2 rounded-md text-sm font-bold ${currentUser
+                    ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-700'
                     : 'bg-gray-400 border-gray-300 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 + New Watchlist
               </button>

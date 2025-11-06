@@ -718,7 +718,7 @@ class DatabaseService {
 
         try {
             const [rows] = await this.pool.execute(
-                'SELECT * FROM user_preferences WHERE user_id = ?',
+                'SELECT * FROM user_settings WHERE user_id = ?',
                 [userId]
             )
             const result = rows as UserPreferences[]
@@ -726,7 +726,7 @@ class DatabaseService {
             // If no preferences exist, create default ones
             if (result.length === 0) {
                 await this.pool.execute(
-                    'INSERT INTO user_preferences (user_id, color_scheme) VALUES (?, ?)',
+                    'INSERT INTO user_settings (user_id, color_scheme) VALUES (?, ?)',
                     [userId, 'standard']
                 )
                 return {
@@ -762,7 +762,7 @@ class DatabaseService {
             values.push(userId)
 
             await this.pool.execute(
-                `UPDATE user_preferences SET ${updates.join(', ')} WHERE user_id = ?`,
+                `UPDATE user_settings SET ${updates.join(', ')} WHERE user_id = ?`,
                 values
             )
 

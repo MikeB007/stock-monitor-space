@@ -4,7 +4,7 @@
 $rootPath = "G:\GIT_REPOSITORY\REPO\stock-monitor-space"
 
 # File extensions to process
-$extensions = @('*.ts', '*.tsx', '*.js', '*.jsx', '*.json', '*.md', '*.html', '*.css', '*.scss')
+$extensions = @('*txt')
 
 # Directories to exclude
 $excludeDirs = @('node_modules', '.next', 'dist', 'build', '.git', 'coverage', 'target')

@@ -10,7 +10,7 @@ echo.
 if "%1"=="" (
     echo Available commands:
     echo   check-db    - Check database contents
-    echo   test-api    - Test portfolio API
+    echo   test-api    - Test watchlist API
     echo   add-stock   - Add a stock via API
     echo   check-ports - Check server ports
     echo   health-check - Health check services

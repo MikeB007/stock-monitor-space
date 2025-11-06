@@ -1,6 +1,6 @@
--- Migration: Add User and Portfolio Management
+-- Migration: Add User and watchlist Management
 -- Date: 2025-11-03
--- Description: Adds users and portfolios tables, updates portfolio_stocks table
+-- Description: Adds users and watchlists tables, updates watchlist_stocks table
 
 USE mystocks;
 
@@ -9,13 +9,13 @@ CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     email VARCHAR(255),
-    last_viewed_portfolio_id INT,
+    last_viewed_watchlist_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Create portfolios table
-CREATE TABLE IF NOT EXISTS portfolios (
+-- Create watchlists table
+CREATE TABLE IF NOT EXISTS watchlists (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -23,28 +23,28 @@ CREATE TABLE IF NOT EXISTS portfolios (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_user_portfolio (user_id, name)
+    UNIQUE KEY unique_user_watchlist (user_id, name)
 );
 
--- Backup existing portfolio_stocks data (optional - comment out if not needed)
--- CREATE TABLE portfolio_stocks_backup AS SELECT * FROM portfolio_stocks;
+-- Backup existing watchlist_stocks data (optional - comment out if not needed)
+-- CREATE TABLE watchlist_stocks_backup AS SELECT * FROM watchlist_stocks;
 
--- Add portfolio_id column to portfolio_stocks
-ALTER TABLE portfolio_stocks 
-ADD COLUMN portfolio_id INT NOT NULL DEFAULT 1 FIRST;
+-- Add watchlist_id column to watchlist_stocks
+ALTER TABLE watchlist_stocks 
+ADD COLUMN watchlist_id INT NOT NULL DEFAULT 1 FIRST;
 
 -- Drop the old unique constraint on symbol only
-ALTER TABLE portfolio_stocks 
+ALTER TABLE watchlist_stocks 
 DROP INDEX IF EXISTS symbol;
 
--- Add composite unique constraint for portfolio_id + symbol
-ALTER TABLE portfolio_stocks 
-ADD UNIQUE KEY unique_portfolio_symbol (portfolio_id, symbol);
+-- Add composite unique constraint for watchlist_id + symbol
+ALTER TABLE watchlist_stocks 
+ADD UNIQUE KEY unique_watchlist_symbol (watchlist_id, symbol);
 
 -- Add foreign key constraint
-ALTER TABLE portfolio_stocks 
-ADD CONSTRAINT fk_portfolio 
-FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE;
+ALTER TABLE watchlist_stocks 
+ADD CONSTRAINT fk_watchlist 
+FOREIGN KEY (watchlist_id) REFERENCES watchlists(id) ON DELETE CASCADE;
 
 -- Create user_preferences table for session state
 CREATE TABLE IF NOT EXISTS user_preferences (
@@ -56,18 +56,18 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     FOREIGN KEY (last_viewed_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Insert a default user and portfolio for existing data
+-- Insert a default user and watchlist for existing data
 INSERT INTO users (username, email) VALUES ('Default User', 'default@example.com')
 ON DUPLICATE KEY UPDATE username=username;
 
-INSERT INTO portfolios (user_id, name, description) 
-SELECT 1, 'Default Portfolio', 'Auto-created portfolio for existing stocks'
-WHERE NOT EXISTS (SELECT 1 FROM portfolios WHERE id = 1);
+INSERT INTO watchlists (user_id, name, description) 
+SELECT 1, 'Default watchlist', 'Auto-created watchlist for existing stocks'
+WHERE NOT EXISTS (SELECT 1 FROM watchlists WHERE id = 1);
 
--- Update existing portfolio_stocks to use the default portfolio (id=1)
+-- Update existing watchlist_stocks to use the default watchlist (id=1)
 -- This is already handled by the DEFAULT 1 in the ALTER TABLE above
 
 SELECT 'Migration completed successfully!' AS Status;
 SELECT COUNT(*) AS TotalUsers FROM users;
-SELECT COUNT(*) AS TotalPortfolios FROM portfolios;
-SELECT COUNT(*) AS TotalStocks FROM portfolio_stocks;
+SELECT COUNT(*) AS Totalwatchlists FROM watchlists;
+SELECT COUNT(*) AS TotalStocks FROM watchlist_stocks;

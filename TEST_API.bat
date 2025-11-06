@@ -11,9 +11,9 @@ echo.
 
 cd /d "g:\GIT_REPOSITORY\REPO\stock-monitor-space"
 
-echo 🔌 Testing portfolio API...
+echo 🔌 Testing watchlist API...
 echo.
-powershell.exe -Command "try { $response = Invoke-RestMethod -Uri 'http://localhost:4000/api/portfolio' -Method GET; Write-Host '✅ API Response:' -ForegroundColor Green; $response | ConvertTo-Json -Depth 3 } catch { Write-Host '❌ API Error:' $_.Exception.Message -ForegroundColor Red }"
+powershell.exe -Command "try { $response = Invoke-RestMethod -Uri 'http://localhost:4000/api/watchlist' -Method GET; Write-Host '✅ API Response:' -ForegroundColor Green; $response | ConvertTo-Json -Depth 3 } catch { Write-Host '❌ API Error:' $_.Exception.Message -ForegroundColor Red }"
 
 echo.
 echo ✅ API test completed!

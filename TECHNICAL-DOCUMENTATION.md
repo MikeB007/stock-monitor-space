@@ -1,10 +1,20 @@
 # Stock Monitor System - Technical Documentation
 
-## Current Status: November 1, 2025
+## Current Status: November 5, 2025
+
+### Latest Updates - v4.0.0
+
+**Portfolio → Watchlist Refactoring** (November 5, 2025)
+- Complete terminology migration from "Portfolio" to "Watchlist"
+- Database schema updated with new table names
+- All API endpoints refactored
+- User settings system added for color scheme preferences
+- Frontend state management updated
+- PowerShell automation scripts created for start/stop operations
 
 ### Architecture Overview
 
-Full-stack TypeScript application with Express backend, Next.js frontend, MySQL database, and WebSocket real-time communication.
+Full-stack TypeScript application with Express backend, Next.js frontend, MySQL database, and WebSocket real-time communication for stock price monitoring and watchlist management.
 
 ---
 

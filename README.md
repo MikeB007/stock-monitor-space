@@ -1,6 +1,23 @@
 # Stock Monitor Workspace
 
-A comprehensive full-stack application for real-time stock price monitoring with WebSocket connectivity.
+A comprehensive full-stack application for real-time stock price monitoring with WebSocket connectivity and watchlist management.
+
+## 📋 Version History
+
+### v4.0.0 - Portfolio to Watchlist Refactoring (November 2025)
+**Breaking Changes:**
+- ✅ **Terminology Update**: All "Portfolio" references renamed to "Watchlist" throughout the application
+- ✅ **Database Schema**: Tables renamed (`portfolios` → `watchlists`, `portfolio_stocks` → `watchlist_stocks`)
+- ✅ **API Endpoints**: All routes updated (`/api/portfolio` → `/api/watchlist`)
+- ✅ **User Preferences**: New `user_settings` table for color scheme preferences
+- ✅ **Settings Page**: Added color scheme configuration (Standard/Graded)
+- ✅ **Frontend State**: All component state variables updated to use watchlist terminology
+- ✅ **Database Service**: Complete refactoring of all CRUD operations
+
+**Migration Notes:**
+- MySQL database required for watchlist persistence
+- User preferences stored per-user in `user_settings` table
+- Browser preferences (last viewed user) stored in `user_preferences` table
 
 ## 🏗️ Project Structure
 
@@ -37,6 +54,7 @@ stock-monitor-space/
 
 ### Setup
 1. **Open workspace**: Open `stock-monitor-workspace.code-workspace` in VS Code
+
 2. **Install dependencies**: 
    ```bash
    # Frontend
@@ -45,7 +63,28 @@ stock-monitor-space/
    # Backend
    cd backend && npm install
    ```
-3. **Build projects**:
+
+3. **Configure MySQL Database**:
+   - Install MySQL Server 8.0+
+   - Create database: `CREATE DATABASE mystocks;`
+   - Tables will be created automatically on first backend startup
+   - Required tables: `users`, `watchlists`, `watchlist_stocks`, `user_settings`, `user_preferences`
+
+4. **Environment Variables** (optional):
+   ```bash
+   # Backend (.env)
+   DB_HOST=localhost
+   DB_USER=root
+   DB_PASSWORD=your_password
+   DB_NAME=mystocks
+   
+   # Stock API Keys (optional, Yahoo Finance works without keys)
+   ALPHA_VANTAGE_API_KEY=your_key
+   FMP_API_KEY=your_key
+   TWELVE_DATA_API_KEY=your_key
+   ```
+
+5. **Build projects**:
    ```bash
    # Use VS Code task: Ctrl+Shift+P -> "Tasks: Run Task" -> "Build All"
    # Or manually:
@@ -55,15 +94,24 @@ stock-monitor-space/
 
 ### Running the Application
 
-#### Option 1: VS Code Tasks (Recommended)
+#### Option 1: PowerShell Scripts (Recommended)
+```powershell
+# Start both backend and frontend in separate windows
+.\start.ps1
+
+# Stop all services
+.\stop.ps1
+```
+
+#### Option 2: VS Code Tasks
 - **Start Full Stack**: `Ctrl+Shift+P` -> "Tasks: Run Task" -> "Start Full Stack"
 - **Start Frontend Only**: "Tasks: Run Task" -> "Start Frontend"
 - **Start Backend Only**: "Tasks: Run Task" -> "Start Backend"
 
-#### Option 2: Manual Commands
+#### Option 3: Manual Commands
 ```bash
 # Terminal 1: Backend
-cd backend && npm run start
+cd backend && npm run dev
 
 # Terminal 2: Frontend  
 cd frontend && npm run dev
@@ -77,19 +125,25 @@ cd frontend && npm run dev
 ## 🎯 Features
 
 ### Frontend (Next.js + React)
-- **Real-time Dashboard**: Live stock price updates
-- **WebSocket Integration**: Socket.io client for real-time data
-- **Responsive UI**: Tailwind CSS styling
-- **Stock Watchlist**: Add/remove stocks from watchlist
+- **Real-time Dashboard**: Live stock price updates with WebSocket
+- **Watchlist Management**: Create, edit, and delete multiple watchlists
+- **Stock Operations**: Add/remove stocks from watchlists with real-time validation
+- **User Settings**: Configurable color schemes (Standard/Graded) for performance intervals
+- **Responsive UI**: Tailwind CSS with modern design
 - **Price Charts**: Visual representation with Recharts
-- **Modern React**: Using React 19.2.0 with Next.js 16.0.0
+- **WebSocket Integration**: Socket.io client for real-time price broadcasting
+- **Modern React**: Using React 19.2.0 with Next.js 16.0.0 (Turbopack)
 
 ### Backend (Node.js + Express)
-- **REST API**: Stock data endpoints
-- **WebSocket Server**: Real-time price broadcasting
-- **Stock Simulation**: Realistic price movements with cron jobs
-- **TypeScript**: Full type safety
-- **CORS Support**: Configured for frontend connectivity
+- **REST API**: Comprehensive endpoints for stocks, watchlists, and user management
+- **MySQL Database**: Persistent storage for watchlists, stocks, and user preferences
+- **Multi-Provider Stock Data**: Yahoo Finance (free), Alpha Vantage, Financial Modeling Prep
+- **WebSocket Server**: Real-time price broadcasting with automatic provider fallback
+- **Stock Validation**: Real-time symbol validation and quote retrieval
+- **Provider Health Monitoring**: Automatic failover between data providers
+- **Caching**: 60-second TTL for API responses to optimize performance
+- **TypeScript**: Full type safety across all services
+- **CORS Support**: Configured for secure frontend connectivity
 
 ### WebSocket Communication
 - **Real-time Updates**: Stock prices update every 5 seconds
@@ -99,11 +153,45 @@ cd frontend && npm run dev
 ## 📡 API Endpoints
 
 ### REST API
+
+#### Health & System
 ```
-GET /api/health          # Health check
-GET /api/stocks          # Get all stocks
-GET /api/stocks/:symbol  # Get specific stock
-GET /api                 # API information
+GET /api/health               # Health check
+GET /api/provider-status      # Stock data provider health status
+GET /api                      # API information
+```
+
+#### Users
+```
+GET /api/users                # Get all users
+GET /api/users/:id            # Get specific user
+POST /api/users               # Create new user
+PUT /api/users/:userId/last-Watchlist  # Update last viewed watchlist
+```
+
+#### Watchlists
+```
+GET /api/Watchlists/user/:userId      # Get user's watchlists
+GET /api/Watchlist/:watchlistId       # Get specific watchlist
+POST /api/Watchlist                   # Create new watchlist
+PUT /api/Watchlist/:watchlistId       # Update watchlist
+DELETE /api/Watchlist/:watchlistId    # Delete watchlist
+POST /api/Watchlist/:watchlistId/:symbol  # Add stock to watchlist
+DELETE /api/Watchlist/:watchlistId/:symbol  # Remove stock from watchlist
+```
+
+#### Stocks
+```
+GET /api/stock-quote          # Get real-time stock quote
+POST /api/validate-symbol     # Validate stock symbol
+GET /api/search-symbols       # Search for stock symbols
+POST /api/refresh-stock       # Refresh stock price from providers
+```
+
+#### User Preferences
+```
+GET /api/preferences/:userId  # Get user settings (color scheme)
+PUT /api/preferences/:userId  # Update user settings
 ```
 
 ### WebSocket Events

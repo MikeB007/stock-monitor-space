@@ -1,10 +1,18 @@
 # Stock Monitor System - Business Documentation
 
-## Current Status: November 1, 2025
+## Current Status: November 5, 2025
+
+### Recent Updates - v4.0.0
+
+**Portfolio → Watchlist Terminology** (November 5, 2025)
+- All user-facing terminology updated from "Portfolio" to "Watchlist"
+- Enhanced user experience with clearer naming conventions
+- Settings page added for color scheme customization
+- Multi-watchlist support with CRUD operations
 
 ### System Overview
 
-Real-time stock monitoring application with MySQL database persistence, multi-provider data fetching, and WebSocket live updates.
+Enterprise-grade stock monitoring application with MySQL database persistence, multi-provider data fetching, WebSocket live updates, and comprehensive watchlist management capabilities.
 
 ---
 
@@ -34,11 +42,18 @@ Real-time stock monitoring application with MySQL database persistence, multi-pr
 
 - **Status**: Fully Operational
 - **Database**: MySQL (mystocks database)
-- **Tables**:
-  - Watchlist_stocks: User Watchlist with 10 stocks currently loaded
-  - stock_prices_history: Historical price tracking
-- **Watchlist Management**: Add, update, delete stocks via REST API
-- **Data Integrity**: No hardcoded defaults, database-only loading
+- **Core Tables**:
+  - `users`: User accounts and profiles
+  - `watchlists`: User-created watchlists with names and descriptions
+  - `watchlist_stocks`: Stock assignments to watchlists
+  - `stocks`: Stock metadata and exchange information
+  - `stock_prices_history`: Historical price tracking
+- **User Preferences**:
+  - `user_settings`: Per-user color scheme preferences (Standard/Graded)
+  - `user_preferences`: Browser-level preferences (last viewed user)
+- **Watchlist Management**: Full CRUD operations via REST API
+- **Multi-User Support**: Each user can create and manage multiple watchlists
+- **Data Integrity**: Database-driven with automatic table creation
 
 ### 4. Current Watchlist Holdings
 

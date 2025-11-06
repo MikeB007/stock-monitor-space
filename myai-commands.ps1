@@ -13,12 +13,12 @@ Write-Host "----------------------------------------" -ForegroundColor Gray
 switch ($Command) {
     "check-db" {
         Write-Host "📊 Checking database contents..." -ForegroundColor Blue
-        & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pIlms2009 -e "USE mystocks; SELECT symbol, description, country, market, exchange, sector FROM portfolio_stocks ORDER BY symbol;"
+        & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pIlms2009 -e "USE mystocks; SELECT symbol, description, country, market, exchange, sector FROM watchlist_stocks ORDER BY symbol;"
     }
     "test-api" {
-        Write-Host "🔌 Testing portfolio API..." -ForegroundColor Blue
+        Write-Host "🔌 Testing watchlist API..." -ForegroundColor Blue
         try {
-            $response = Invoke-RestMethod -Uri "http://localhost:4000/api/portfolio" -Method GET
+            $response = Invoke-RestMethod -Uri "http://localhost:4000/api/watchlist" -Method GET
             Write-Host "✅ API Response:" -ForegroundColor Green
             $response | ConvertTo-Json -Depth 3
         }
@@ -31,7 +31,7 @@ switch ($Command) {
         $symbol = Read-Host "Enter stock symbol"
         try {
             $body = @{ symbol = $symbol } | ConvertTo-Json
-            $response = Invoke-RestMethod -Uri "http://localhost:4000/api/portfolio" -Method POST -Headers @{"Content-Type" = "application/json" } -Body $body
+            $response = Invoke-RestMethod -Uri "http://localhost:4000/api/watchlist" -Method POST -Headers @{"Content-Type" = "application/json" } -Body $body
             Write-Host "✅ Stock added:" -ForegroundColor Green
             $response | ConvertTo-Json -Depth 3
         }
@@ -64,7 +64,7 @@ switch ($Command) {
     default {
         Write-Host "❓ Available commands:" -ForegroundColor Yellow
         Write-Host "  check-db    - Check database contents" -ForegroundColor White
-        Write-Host "  test-api    - Test portfolio API" -ForegroundColor White
+        Write-Host "  test-api    - Test watchlist API" -ForegroundColor White
         Write-Host "  add-stock   - Add a stock via API" -ForegroundColor White
         Write-Host "  check-ports - Check if ports 3000/4000 are open" -ForegroundColor White
         Write-Host "  health-check - Check if services are running" -ForegroundColor White

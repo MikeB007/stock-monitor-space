@@ -17,7 +17,7 @@ dotenv.config()
 // Configuration
 const USE_REAL_PRICES = process.env.USE_REAL_PRICES !== 'false' // Default to true
 const PORT = process.env.PORT || 4000
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
     : ['http://localhost:3000', 'http://127.0.0.1:3000']
 
@@ -163,22 +163,41 @@ app.post('/api/refresh-stock', async (req, res) => {
             error: 'Stock refresh failed'
         })
     }
-})// OCR routes for image processing
+})
+// Logging middleware to debug routes
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path}`)
+    next()
+})
+
+// Basic routes (health, stocks info)
+console.log('📋 Registering basic routes (health, stocks)...')
+setupRoutes(app)
+
+// OCR routes for image processing
+console.log('📋 Registering OCR routes at /api...')
 app.use('/api', ocrRoutes)
 
-// Watchlist routes for database management
+// User routes
+console.log('📋 Registering user routes at /api...')
 app.use('/api', userRoutes)
-app.use('/api', watchlistManagementRoutes)
-app.use('/api', watchlistRoutes)
-app.use(preferencesRoutes)
 
-// Routes
-setupRoutes(app)
+// Watchlist management routes
+console.log('📋 Registering watchlist management routes at /api...')
+app.use('/api', watchlistManagementRoutes)
+
+// Watchlist routes
+console.log('📋 Registering watchlist routes at /api...')
+app.use('/api', watchlistRoutes)
+
+// Preferences routes (already includes /api prefix in routes)
+console.log('📋 Registering preferences routes...')
+app.use(preferencesRoutes)
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
     console.log(`Client connected: ${socket.id}`)
-    
+
     // Track this client's subscribed equities for cleanup on disconnect
     let clientEquities: string[] = []
 
@@ -187,7 +206,7 @@ io.on('connection', (socket) => {
     // Handle equity subscriptions
     socket.on('subscribeEquities', async (data: { symbols: string[] }) => {
         console.log(`Client ${socket.id} subscribing to equities:`, data.symbols)
-        
+
         // Store client's equities for cleanup later
         clientEquities = data.symbols
 
@@ -200,14 +219,14 @@ io.on('connection', (socket) => {
     socket.on('unsubscribeEquities', (data: { symbols: string[] }) => {
         console.log(`Client ${socket.id} unsubscribing from equities:`, data.symbols)
         stockPriceService.unsubscribeFromEquities(data.symbols)
-        
+
         // Remove from client's tracked equities
         clientEquities = clientEquities.filter(symbol => !data.symbols.includes(symbol))
     })
 
     socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`)
-        
+
         // Clean up: unsubscribe all of this client's equities
         if (clientEquities.length > 0) {
             console.log(`🧹 Cleaning up subscriptions for disconnected client: ${clientEquities.join(', ')}`)

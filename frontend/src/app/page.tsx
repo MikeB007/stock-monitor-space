@@ -1362,7 +1362,7 @@ function StockMonitorComponent() {
         <div className="flex items-center justify-between px-6 py-4 border-b-2 border-gray-300 bg-gradient-to-r from-blue-600 to-blue-700">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-white">
-              🚀 Stock Monitor - HOT RELOAD ACTIVE! 🔥
+              🚀 Stock Monitor 🔥
             </h1>
             <div className={`flex items-center gap-2 px-3 py-1 rounded-md text-sm font-bold ${connected ? 'bg-green-500 text-white border-2 border-green-400' : 'bg-red-500 text-white border-2 border-red-400'}`}>
               <Activity className="w-3 h-3" />
@@ -1469,8 +1469,8 @@ function StockMonitorComponent() {
                 onClick={() => setShowWatchlistModal(true)}
                 disabled={!currentUser}
                 className={`px-3 py-1 text-white border-2 rounded-md text-sm font-bold ${currentUser
-                    ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-700'
-                    : 'bg-gray-400 border-gray-300 cursor-not-allowed'
+                  ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-700'
+                  : 'bg-gray-400 border-gray-300 cursor-not-allowed'
                   }`}
               >
                 + New Watchlist

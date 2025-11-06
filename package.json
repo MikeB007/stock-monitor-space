@@ -18,7 +18,16 @@
         "build:backend": "cd backend && npm run build",
         "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
         "clean": "powershell -Command \"Get-Process -Name 'node' -ErrorAction SilentlyContinue | Stop-Process -Force\"",
-        "test:services": "powershell -Command \"try { Invoke-WebRequest -Uri 'http://localhost:4000/api/health' -TimeoutSec 5; Write-Host 'Backend: OK' } catch { Write-Host 'Backend: FAIL' }; try { Invoke-WebRequest -Uri 'http://localhost:3000' -TimeoutSec 5; Write-Host 'Frontend: OK' } catch { Write-Host 'Frontend: FAIL' }\""
+        "test:services": "powershell -Command \"try { Invoke-WebRequest -Uri 'http://localhost:4000/api/health' -TimeoutSec 5; Write-Host 'Backend: OK' } catch { Write-Host 'Backend: FAIL' }; try { Invoke-WebRequest -Uri 'http://localhost:3000' -TimeoutSec 5; Write-Host 'Frontend: OK' } catch { Write-Host 'Frontend: FAIL' }\"",
+        "test": "npm run test:backend && npm run test:frontend",
+        "test:backend": "cd backend && npm test",
+        "test:frontend": "cd frontend && npm test",
+        "test:watch": "concurrently \"npm run test:backend:watch\" \"npm run test:frontend:watch\" --names \"backend,frontend\" --prefix-colors \"blue,green\"",
+        "test:backend:watch": "cd backend && npm run test:watch",
+        "test:frontend:watch": "cd frontend && npm run test:watch",
+        "test:coverage": "npm run test:backend:coverage && npm run test:frontend:coverage",
+        "test:backend:coverage": "cd backend && npm run test:coverage",
+        "test:frontend:coverage": "cd frontend && npm run test:coverage"
     },
     "keywords": [
         "stock-monitor",

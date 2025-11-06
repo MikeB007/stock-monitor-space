@@ -13,7 +13,7 @@ cd /d "g:\GIT_REPOSITORY\REPO\stock-monitor-space"
 
 echo 📊 Checking database contents...
 echo.
-"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pIlms2009 -e "USE mystocks; SELECT COUNT(*) as 'Total Stocks' FROM portfolio_stocks; SELECT symbol, description, country, market, exchange, sector FROM portfolio_stocks ORDER BY symbol;"
+"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -pIlms2009 -e "USE mystocks; SELECT COUNT(*) as 'Total Stocks' FROM watchlist_stocks; SELECT symbol, description, country, market, exchange, sector FROM watchlist_stocks ORDER BY symbol;"
 
 echo.
 echo 📈 Current status:

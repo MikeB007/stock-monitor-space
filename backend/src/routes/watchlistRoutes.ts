@@ -1,10 +1,10 @@
 import express from 'express'
-import { databaseService, PortfolioStock } from '../services/databaseService'
+import { databaseService, WatchlistStock } from '../services/databaseService'
 
 const router = express.Router()
 
-// GET /api/portfolio - Get all portfolio stocks (optionally filtered by portfolio_id)
-router.get('/portfolio', async (req, res) => {
+// GET /api/Watchlist - Get all Watchlist stocks (optionally filtered by Watchlist_id)
+router.get('/Watchlist', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -13,27 +13,27 @@ router.get('/portfolio', async (req, res) => {
             })
         }
 
-        const portfolioId = req.query.portfolio_id ? parseInt(req.query.portfolio_id as string) : undefined
-        const stocks = await databaseService.getPortfolioStocks(portfolioId)
+        const WatchlistId = req.query.Watchlist_id ? parseInt(req.query.Watchlist_id as string) : undefined
+        const stocks = await databaseService.getWatchlistStocks(WatchlistId)
 
         return res.json({
             success: true,
             data: stocks,
             count: stocks.length,
-            portfolio_id: portfolioId
+            Watchlist_id: WatchlistId
         })
 
     } catch (error) {
-        console.error('Portfolio API error:', error)
+        console.error('Watchlist API error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to fetch portfolio stocks'
+            error: 'Failed to fetch Watchlist stocks'
         })
     }
 })
 
-// POST /api/portfolio - Add new stock to portfolio
-router.post('/portfolio', async (req, res) => {
+// POST /api/Watchlist - Add new stock to Watchlist
+router.post('/Watchlist', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -42,13 +42,13 @@ router.post('/portfolio', async (req, res) => {
             })
         }
 
-        const { symbol, portfolio_id } = req.body
+        const { symbol, Watchlist_id } = req.body
 
         // Validate required fields
-        if (!symbol || !portfolio_id) {
+        if (!symbol || !Watchlist_id) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields: symbol, portfolio_id'
+                error: 'Missing required fields: symbol, Watchlist_id'
             })
         }
 
@@ -119,45 +119,45 @@ router.post('/portfolio', async (req, res) => {
             industry: industry
         }
 
-        console.log(`📊 Prepared stock data for ${cleanSymbol} in portfolio ${portfolio_id}:`, stockData)
+        console.log(`📊 Prepared stock data for ${cleanSymbol} in Watchlist ${Watchlist_id}:`, stockData)
 
-        // Step 4: Add to database (creates stock if needed, then links to portfolio)
-        const insertId = await databaseService.addPortfolioStock(parseInt(portfolio_id), stockData)
+        // Step 4: Add to database (creates stock if needed, then links to Watchlist)
+        const insertId = await databaseService.addWatchlistStock(parseInt(Watchlist_id), stockData)
 
-        console.log(`✅ Added ${cleanSymbol} to portfolio database with ID: ${insertId}`)
+        console.log(`✅ Added ${cleanSymbol} to Watchlist database with ID: ${insertId}`)
 
         return res.status(201).json({
             success: true,
-            message: `Stock ${stockData.symbol} validated and added to portfolio`,
-            data: { ...stockData, id: insertId, portfolio_id: parseInt(portfolio_id) }
+            message: `Stock ${stockData.symbol} validated and added to Watchlist`,
+            data: { ...stockData, id: insertId, Watchlist_id: parseInt(Watchlist_id) }
         })
 
     } catch (error) {
-        console.error('Add portfolio stock error:', error)
+        console.error('Add Watchlist stock error:', error)
 
         const errorMessage = (error as Error).message
         if (errorMessage.includes('Duplicate entry')) {
             return res.status(409).json({
                 success: false,
-                error: `Stock ${req.body.symbol} already exists in this portfolio`
+                error: `Stock ${req.body.symbol} already exists in this Watchlist`
             })
         }
         if (errorMessage.includes('foreign key constraint') || errorMessage.includes('Cannot add or update a child row')) {
             return res.status(404).json({
                 success: false,
-                error: `Portfolio ${req.body.portfolio_id} does not exist`
+                error: `Watchlist ${req.body.Watchlist_id} does not exist`
             })
         }
 
         return res.status(500).json({
             success: false,
-            error: 'Failed to add stock to portfolio'
+            error: 'Failed to add stock to Watchlist'
         })
     }
 })
 
-// PUT /api/portfolio/:portfolioId/:symbol - Update stock in portfolio
-router.put('/portfolio/:portfolioId/:symbol', async (req, res) => {
+// PUT /api/Watchlist/:WatchlistId/:symbol - Update stock in Watchlist
+router.put('/Watchlist/:WatchlistId/:symbol', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -166,14 +166,14 @@ router.put('/portfolio/:portfolioId/:symbol', async (req, res) => {
             })
         }
 
-        const { portfolioId, symbol } = req.params
+        const { WatchlistId, symbol } = req.params
         const updates = req.body
 
         // Remove symbol and id from updates to prevent modification
         delete updates.symbol
         delete updates.id
         delete updates.stock_id
-        delete updates.portfolio_id
+        delete updates.Watchlist_id
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({
@@ -182,7 +182,7 @@ router.put('/portfolio/:portfolioId/:symbol', async (req, res) => {
             })
         }
 
-        // Update the stock metadata (not the portfolio relationship)
+        // Update the stock metadata (not the Watchlist relationship)
         const updated = await databaseService.updateStock(symbol.toUpperCase(), updates)
 
         if (!updated) {
@@ -198,16 +198,16 @@ router.put('/portfolio/:portfolioId/:symbol', async (req, res) => {
         })
 
     } catch (error) {
-        console.error('Update portfolio stock error:', error)
+        console.error('Update Watchlist stock error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to update stock in portfolio'
+            error: 'Failed to update stock in Watchlist'
         })
     }
 })
 
-// DELETE /api/portfolio/:portfolioId/:symbol - Remove stock from portfolio
-router.delete('/portfolio/:portfolioId/:symbol', async (req, res) => {
+// DELETE /api/Watchlist/:WatchlistId/:symbol - Remove stock from Watchlist
+router.delete('/Watchlist/:WatchlistId/:symbol', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -216,32 +216,32 @@ router.delete('/portfolio/:portfolioId/:symbol', async (req, res) => {
             })
         }
 
-        const { portfolioId, symbol } = req.params
-        const removed = await databaseService.removePortfolioStock(parseInt(portfolioId), symbol.toUpperCase())
+        const { WatchlistId, symbol } = req.params
+        const removed = await databaseService.removeWatchlistStock(parseInt(WatchlistId), symbol.toUpperCase())
 
         if (!removed) {
             return res.status(404).json({
                 success: false,
-                error: `Stock ${symbol} not found in portfolio ${portfolioId}`
+                error: `Stock ${symbol} not found in Watchlist ${WatchlistId}`
             })
         }
 
         return res.json({
             success: true,
-            message: `Stock ${symbol} removed from portfolio ${portfolioId}`
+            message: `Stock ${symbol} removed from Watchlist ${WatchlistId}`
         })
 
     } catch (error) {
-        console.error('Remove portfolio stock error:', error)
+        console.error('Remove Watchlist stock error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to remove stock from portfolio'
+            error: 'Failed to remove stock from Watchlist'
         })
     }
 })
 
-// GET /api/portfolio/:symbol/history - Get price history for a stock
-router.get('/portfolio/:symbol/history', async (req, res) => {
+// GET /api/Watchlist/:symbol/history - Get price history for a stock
+router.get('/Watchlist/:symbol/history', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -272,8 +272,8 @@ router.get('/portfolio/:symbol/history', async (req, res) => {
     }
 })
 
-// GET /api/portfolio/stats - Get portfolio statistics
-router.get('/portfolio/stats', async (req, res) => {
+// GET /api/Watchlist/stats - Get Watchlist statistics
+router.get('/Watchlist/stats', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -282,8 +282,8 @@ router.get('/portfolio/stats', async (req, res) => {
             })
         }
 
-        const portfolioId = req.query.portfolio_id ? parseInt(req.query.portfolio_id as string) : undefined
-        const stocks = await databaseService.getPortfolioStocks(portfolioId)
+        const WatchlistId = req.query.Watchlist_id ? parseInt(req.query.Watchlist_id as string) : undefined
+        const stocks = await databaseService.getWatchlistStocks(WatchlistId)
 
         // Group by market and country
         const marketStats = stocks.reduce((acc, stock) => {
@@ -314,16 +314,16 @@ router.get('/portfolio/stats', async (req, res) => {
         })
 
     } catch (error) {
-        console.error('Get portfolio stats error:', error)
+        console.error('Get Watchlist stats error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to get portfolio statistics'
+            error: 'Failed to get Watchlist statistics'
         })
     }
 })
 
-// GET /api/portfolio/performance - Get performance data with % change from earliest recorded price
-router.get('/portfolio/performance', async (req, res) => {
+// GET /api/Watchlist/performance - Get performance data with % change from earliest recorded price
+router.get('/Watchlist/performance', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -332,8 +332,8 @@ router.get('/portfolio/performance', async (req, res) => {
             })
         }
 
-        const portfolioId = req.query.portfolio_id ? parseInt(req.query.portfolio_id as string) : undefined
-        const stocks = await databaseService.getPortfolioStocks(portfolioId)
+        const WatchlistId = req.query.Watchlist_id ? parseInt(req.query.Watchlist_id as string) : undefined
+        const stocks = await databaseService.getWatchlistStocks(WatchlistId)
 
         // Calculate performance for each stock
         const performance = await Promise.all(stocks.map(async (stock) => {
@@ -385,20 +385,20 @@ router.get('/portfolio/performance', async (req, res) => {
         return res.json({
             success: true,
             data: performance,
-            portfolio_id: portfolioId
+            Watchlist_id: WatchlistId
         })
 
     } catch (error) {
-        console.error('Get portfolio performance error:', error)
+        console.error('Get Watchlist performance error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to get portfolio performance'
+            error: 'Failed to get Watchlist performance'
         })
     }
 })
 
-// GET /api/portfolio/intervals - Get % change for all time intervals using database
-router.get('/portfolio/intervals', async (req, res) => {
+// GET /api/Watchlist/intervals - Get % change for all time intervals using database
+router.get('/Watchlist/intervals', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -407,8 +407,8 @@ router.get('/portfolio/intervals', async (req, res) => {
             })
         }
 
-        const portfolioId = req.query.portfolio_id ? parseInt(req.query.portfolio_id as string) : undefined
-        const stocks = await databaseService.getPortfolioStocks(portfolioId)
+        const WatchlistId = req.query.Watchlist_id ? parseInt(req.query.Watchlist_id as string) : undefined
+        const stocks = await databaseService.getWatchlistStocks(WatchlistId)
 
         // Time intervals in minutes
         const intervals = [
@@ -492,14 +492,14 @@ router.get('/portfolio/intervals', async (req, res) => {
         return res.json({
             success: true,
             data: intervalData,
-            portfolio_id: portfolioId
+            Watchlist_id: WatchlistId
         })
 
     } catch (error) {
-        console.error('Get portfolio intervals error:', error)
+        console.error('Get Watchlist intervals error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to get portfolio intervals'
+            error: 'Failed to get Watchlist intervals'
         })
     }
 })

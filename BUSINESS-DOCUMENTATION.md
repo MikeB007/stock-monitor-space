@@ -1,10 +1,18 @@
 # Stock Monitor System - Business Documentation
 
-## Current Status: November 1, 2025
+## Current Status: November 5, 2025
+
+### Recent Updates - v4.0.0
+
+**Portfolio → Watchlist Terminology** (November 5, 2025)
+- All user-facing terminology updated from "Portfolio" to "Watchlist"
+- Enhanced user experience with clearer naming conventions
+- Settings page added for color scheme customization
+- Multi-watchlist support with CRUD operations
 
 ### System Overview
 
-Real-time stock monitoring application with MySQL database persistence, multi-provider data fetching, and WebSocket live updates.
+Enterprise-grade stock monitoring application with MySQL database persistence, multi-provider data fetching, WebSocket live updates, and comprehensive watchlist management capabilities.
 
 ---
 
@@ -34,13 +42,20 @@ Real-time stock monitoring application with MySQL database persistence, multi-pr
 
 - **Status**: Fully Operational
 - **Database**: MySQL (mystocks database)
-- **Tables**:
-  - portfolio_stocks: User portfolio with 10 stocks currently loaded
-  - stock_prices_history: Historical price tracking
-- **Portfolio Management**: Add, update, delete stocks via REST API
-- **Data Integrity**: No hardcoded defaults, database-only loading
+- **Core Tables**:
+  - `users`: User accounts and profiles
+  - `watchlists`: User-created watchlists with names and descriptions
+  - `watchlist_stocks`: Stock assignments to watchlists
+  - `stocks`: Stock metadata and exchange information
+  - `stock_prices_history`: Historical price tracking
+- **User Preferences**:
+  - `user_settings`: Per-user color scheme preferences (Standard/Graded)
+  - `user_preferences`: Browser-level preferences (last viewed user)
+- **Watchlist Management**: Full CRUD operations via REST API
+- **Multi-User Support**: Each user can create and manage multiple watchlists
+- **Data Integrity**: Database-driven with automatic table creation
 
-### 4. Current Portfolio Holdings
+### 4. Current Watchlist Holdings
 
 ```
 Symbol    | Description                          | Market  | Exchange | Status
@@ -80,7 +95,7 @@ JNJ       | Johnson & Johnson                   | US      | NYSE     | Active
 - **Features**:
   - Live price updates
   - Stock search and validation
-  - Add/remove stocks from portfolio
+  - Add/remove stocks from Watchlist
   - Market column with no-wrap formatting
 
 ---
@@ -120,7 +135,7 @@ JNJ       | Johnson & Johnson                   | US      | NYSE     | Active
 ### Database Requirements
 
 - MySQL database named 'mystocks'
-- Tables: portfolio_stocks, stock_prices_history
+- Tables: Watchlist_stocks, stock_prices_history
 - User: root
 - Password: (configured in .env)
 
@@ -213,7 +228,7 @@ JNJ       | Johnson & Johnson                   | US      | NYSE     | Active
 
 - Sector/industry data fetching
 - User authentication
-- Portfolio performance tracking
+- Watchlist performance tracking
 - Historical price charts
 - Email/SMS alerts
 - Mobile application

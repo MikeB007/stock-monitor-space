@@ -62,6 +62,8 @@ export default function SettingsPage() {
         setSaveMessage('✅ Settings saved successfully!')
         // Save to localStorage for immediate use
         localStorage.setItem('colorScheme', colorScheme)
+        // Reload preferences to confirm the save
+        await loadUserPreferences(currentUserId)
       } else {
         setSaveMessage('❌ Failed to save settings')
       }

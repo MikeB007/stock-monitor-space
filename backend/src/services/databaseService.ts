@@ -11,7 +11,7 @@ export interface User {
     updated_at?: Date
 }
 
-export interface Portfolio {
+export interface Watchlist {
     id?: number
     user_id: number
     name: string
@@ -33,16 +33,16 @@ export interface Stock {
     updated_at?: Date
 }
 
-export interface PortfolioStock {
+export interface WatchlistStock {
     id?: number
-    portfolio_id: number
+    Watchlist_id: number
     stock_id: number
     created_at?: Date
     updated_at?: Date
 }
 
 // Extended interface for API responses that include stock details
-export interface PortfolioStockWithDetails extends PortfolioStock {
+export interface WatchlistStockWithDetails extends WatchlistStock {
     symbol: string
     description: string
     country: string
@@ -131,9 +131,9 @@ class DatabaseService {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `)
 
-            // Create portfolios table
+            // Create watchlists table
             await this.pool.execute(`
-                CREATE TABLE IF NOT EXISTS portfolios (
+                CREATE TABLE IF NOT EXISTS watchlists (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     user_id INT NOT NULL,
                     name VARCHAR(255) NOT NULL,
@@ -142,7 +142,7 @@ class DatabaseService {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                     INDEX idx_user_id (user_id),
-                    UNIQUE KEY unique_user_portfolio (user_id, name)
+                    UNIQUE KEY unique_user_watchlist (user_id, name)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `)
 
@@ -166,18 +166,18 @@ class DatabaseService {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `)
 
-            // Create portfolio_stocks junction table
+            // Create watchlist_stocks junction table
             await this.pool.execute(`
-                CREATE TABLE IF NOT EXISTS portfolio_stocks (
+                CREATE TABLE IF NOT EXISTS watchlist_stocks (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    portfolio_id INT NOT NULL,
+                    watchlist_id INT NOT NULL,
                     stock_id INT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
+                    FOREIGN KEY (watchlist_id) REFERENCES watchlists(id) ON DELETE CASCADE,
                     FOREIGN KEY (stock_id) REFERENCES stocks(id) ON DELETE CASCADE,
-                    UNIQUE KEY unique_portfolio_stock (portfolio_id, stock_id),
-                    INDEX idx_portfolio_id (portfolio_id),
+                    UNIQUE KEY unique_watchlist_stock (watchlist_id, stock_id),
+                    INDEX idx_watchlist_id (watchlist_id),
                     INDEX idx_stock_id (stock_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `)
@@ -279,61 +279,61 @@ class DatabaseService {
         }
     }
 
-    // ==================== PORTFOLIO MANAGEMENT ====================
+    // ==================== Watchlist MANAGEMENT ====================
 
-    public async createPortfolio(portfolio: Portfolio): Promise<number> {
+    public async createWatchlist(Watchlist: Watchlist): Promise<number> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             const [result] = await this.pool.execute(
-                `INSERT INTO portfolios (user_id, name, description) VALUES (?, ?, ?)`,
-                [portfolio.user_id, portfolio.name, portfolio.description || null]
+                `INSERT INTO Watchlists (user_id, name, description) VALUES (?, ?, ?)`,
+                [Watchlist.user_id, Watchlist.name, Watchlist.description || null]
             )
 
             const insertId = (result as any).insertId
-            console.log(`📁 Created portfolio: ${portfolio.name} (ID: ${insertId})`)
+            console.log(`📁 Created Watchlist: ${Watchlist.name} (ID: ${insertId})`)
             return insertId
 
         } catch (error) {
-            console.error(`❌ Failed to create portfolio ${portfolio.name}:`, error)
+            console.error(`❌ Failed to create Watchlist ${Watchlist.name}:`, error)
             throw error
         }
     }
 
-    public async getPortfoliosByUserId(userId: number): Promise<Portfolio[]> {
+    public async getWatchlistsByUserId(userId: number): Promise<Watchlist[]> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             const [rows] = await this.pool.execute(
-                'SELECT * FROM portfolios WHERE user_id = ? ORDER BY name ASC',
+                'SELECT * FROM Watchlists WHERE user_id = ? ORDER BY name ASC',
                 [userId]
             )
-            return rows as Portfolio[]
+            return rows as Watchlist[]
 
         } catch (error) {
-            console.error(`❌ Failed to get portfolios for user ${userId}:`, error)
+            console.error(`❌ Failed to get Watchlists for user ${userId}:`, error)
             throw error
         }
     }
 
-    public async getPortfolioById(portfolioId: number): Promise<Portfolio | null> {
+    public async getWatchlistById(WatchlistId: number): Promise<Watchlist | null> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             const [rows] = await this.pool.execute(
-                'SELECT * FROM portfolios WHERE id = ?',
-                [portfolioId]
+                'SELECT * FROM Watchlists WHERE id = ?',
+                [WatchlistId]
             ) as any
 
             return rows.length > 0 ? rows[0] : null
 
         } catch (error) {
-            console.error(`❌ Failed to get portfolio ${portfolioId}:`, error)
+            console.error(`❌ Failed to get Watchlist ${WatchlistId}:`, error)
             throw error
         }
     }
 
-    public async updatePortfolio(portfolioId: number, updates: Partial<Portfolio>): Promise<boolean> {
+    public async updateWatchlist(WatchlistId: number, updates: Partial<Watchlist>): Promise<boolean> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
@@ -351,57 +351,57 @@ class DatabaseService {
                 .map(key => (updates as any)[key])
 
             const [result] = await this.pool.execute(
-                `UPDATE portfolios SET ${setClause} WHERE id = ?`,
-                [...values, portfolioId]
+                `UPDATE Watchlists SET ${setClause} WHERE id = ?`,
+                [...values, WatchlistId]
             )
 
             const affectedRows = (result as any).affectedRows
             return affectedRows > 0
 
         } catch (error) {
-            console.error(`❌ Failed to update portfolio ${portfolioId}:`, error)
+            console.error(`❌ Failed to update Watchlist ${WatchlistId}:`, error)
             throw error
         }
     }
 
-    public async deletePortfolio(portfolioId: number): Promise<boolean> {
+    public async deleteWatchlist(WatchlistId: number): Promise<boolean> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             const [result] = await this.pool.execute(
-                'DELETE FROM portfolios WHERE id = ?',
-                [portfolioId]
+                'DELETE FROM Watchlists WHERE id = ?',
+                [WatchlistId]
             )
 
             const affectedRows = (result as any).affectedRows
             if (affectedRows > 0) {
-                console.log(`🗑️ Deleted portfolio ${portfolioId}`)
+                console.log(`🗑️ Deleted Watchlist ${WatchlistId}`)
                 return true
             }
             return false
 
         } catch (error) {
-            console.error(`❌ Failed to delete portfolio ${portfolioId}:`, error)
+            console.error(`❌ Failed to delete Watchlist ${WatchlistId}:`, error)
             throw error
         }
     }
 
     // ==================== USER PREFERENCES / STATE MANAGEMENT ====================
 
-    public async updateUserLastViewedPortfolio(userId: number, portfolioId: number): Promise<boolean> {
+    public async updateUserLastViewedWatchlist(userId: number, WatchlistId: number): Promise<boolean> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             const [result] = await this.pool.execute(
-                'UPDATE users SET last_viewed_portfolio_id = ? WHERE id = ?',
-                [portfolioId, userId]
+                'UPDATE users SET last_viewed_Watchlist_id = ? WHERE id = ?',
+                [WatchlistId, userId]
             )
 
             const affectedRows = (result as any).affectedRows
             return affectedRows > 0
 
         } catch (error) {
-            console.error(`❌ Failed to update last viewed portfolio for user ${userId}:`, error)
+            console.error(`❌ Failed to update last viewed Watchlist for user ${userId}:`, error)
             throw error
         }
     }
@@ -491,40 +491,40 @@ class DatabaseService {
         }
     }
 
-    // ==================== PORTFOLIO STOCKS MANAGEMENT ====================
+    // ==================== Watchlist STOCKS MANAGEMENT ====================
 
-    public async addPortfolioStock(portfolioId: number, stockData: Omit<Stock, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
+    public async addWatchlistStock(WatchlistId: number, stockData: Omit<Stock, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             // First, create or get the stock
             const stockId = await this.createOrGetStock(stockData)
 
-            // Then, create the portfolio-stock relationship
+            // Then, create the Watchlist-stock relationship
             const [result] = await this.pool.execute(
-                `INSERT INTO portfolio_stocks (portfolio_id, stock_id) 
+                `INSERT INTO Watchlist_stocks (Watchlist_id, stock_id) 
                  VALUES (?, ?)`,
-                [portfolioId, stockId]
+                [WatchlistId, stockId]
             )
 
             const insertId = (result as any).insertId
-            console.log(`📈 Added stock ${stockData.symbol} (ID: ${stockId}) to portfolio ${portfolioId}`)
+            console.log(`📈 Added stock ${stockData.symbol} (ID: ${stockId}) to Watchlist ${WatchlistId}`)
             return insertId
 
         } catch (error) {
-            console.error(`❌ Failed to add stock ${stockData.symbol} to portfolio:`, error)
+            console.error(`❌ Failed to add stock ${stockData.symbol} to Watchlist:`, error)
             throw error
         }
     }
 
-    public async getPortfolioStocks(portfolioId?: number): Promise<PortfolioStockWithDetails[]> {
+    public async getWatchlistStocks(WatchlistId?: number): Promise<WatchlistStockWithDetails[]> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
             let query = `
                 SELECT 
                     ps.id,
-                    ps.portfolio_id,
+                    ps.Watchlist_id,
                     ps.stock_id,
                     ps.created_at,
                     ps.updated_at,
@@ -535,28 +535,28 @@ class DatabaseService {
                     s.exchange,
                     s.sector,
                     s.industry
-                FROM portfolio_stocks ps
+                FROM Watchlist_stocks ps
                 INNER JOIN stocks s ON ps.stock_id = s.id
             `
             const params: any[] = []
             
-            if (portfolioId !== undefined) {
-                query += ' WHERE portfolio_id = ?'
-                params.push(portfolioId)
+            if (WatchlistId !== undefined) {
+                query += ' WHERE Watchlist_id = ?'
+                params.push(WatchlistId)
             }
             
             query += ' ORDER BY symbol ASC'
             
             const [rows] = await this.pool.execute(query, params)
-            return rows as PortfolioStockWithDetails[]
+            return rows as WatchlistStockWithDetails[]
 
         } catch (error) {
-            console.error('❌ Failed to get portfolio stocks:', error)
+            console.error('❌ Failed to get Watchlist stocks:', error)
             throw error
         }
     }
 
-    public async removePortfolioStock(portfolioId: number, symbol: string): Promise<boolean> {
+    public async removeWatchlistStock(WatchlistId: number, symbol: string): Promise<boolean> {
         if (!this.pool) throw new Error('Database not initialized')
 
         try {
@@ -568,19 +568,19 @@ class DatabaseService {
             }
 
             const [result] = await this.pool.execute(
-                'DELETE FROM portfolio_stocks WHERE portfolio_id = ? AND stock_id = ?',
-                [portfolioId, stock.id]
+                'DELETE FROM Watchlist_stocks WHERE Watchlist_id = ? AND stock_id = ?',
+                [WatchlistId, stock.id]
             )
 
             const affectedRows = (result as any).affectedRows
             if (affectedRows > 0) {
-                console.log(`📉 Removed stock from portfolio ${portfolioId}: ${symbol}`)
+                console.log(`📉 Removed stock from Watchlist ${WatchlistId}: ${symbol}`)
                 return true
             }
             return false
 
         } catch (error) {
-            console.error(`❌ Failed to remove stock ${symbol} from portfolio:`, error)
+            console.error(`❌ Failed to remove stock ${symbol} from Watchlist:`, error)
             throw error
         }
     }
@@ -641,7 +641,7 @@ class DatabaseService {
             )
 
         } catch (error) {
-            // Only log error if it's not a foreign key constraint (stock not in portfolio)
+            // Only log error if it's not a foreign key constraint (stock not in Watchlist)
             const errorMessage = (error as Error).message
             if (!errorMessage.includes('foreign key constraint')) {
                 console.error(`❌ Failed to record price for ${stockData.symbol}:`, errorMessage)
@@ -718,7 +718,7 @@ class DatabaseService {
 
         try {
             const [rows] = await this.pool.execute(
-                'SELECT * FROM user_preferences WHERE user_id = ?',
+                'SELECT * FROM user_settings WHERE user_id = ?',
                 [userId]
             )
             const result = rows as UserPreferences[]
@@ -726,7 +726,7 @@ class DatabaseService {
             // If no preferences exist, create default ones
             if (result.length === 0) {
                 await this.pool.execute(
-                    'INSERT INTO user_preferences (user_id, color_scheme) VALUES (?, ?)',
+                    'INSERT INTO user_settings (user_id, color_scheme) VALUES (?, ?)',
                     [userId, 'standard']
                 )
                 return {
@@ -762,7 +762,7 @@ class DatabaseService {
             values.push(userId)
 
             await this.pool.execute(
-                `UPDATE user_preferences SET ${updates.join(', ')} WHERE user_id = ?`,
+                `UPDATE user_settings SET ${updates.join(', ')} WHERE user_id = ?`,
                 values
             )
 

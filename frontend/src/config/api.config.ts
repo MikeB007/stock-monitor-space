@@ -15,18 +15,18 @@ export const API_CONFIG = {
     USER_BY_ID: (userId: number) => `${API_BASE_URL}/api/users/${userId}`,
     
     // Preferences endpoints
-    PREFERENCES: (userId: number) => `${API_BASE_URL}/api/preferences/${userId}`,
-    USER_PREFERENCES: (browserId: string) => `${API_BASE_URL}/api/preferences/${browserId}`,
+    BROWSER_PREFERENCES: (browserId: string) => `${API_BASE_URL}/api/preferences/${browserId}`, // Get last viewed user for this browser
+    USER_PREFERENCES: (userId: number) => `${API_BASE_URL}/api/preferences/${userId}`, // Get/update user's color scheme settings
     SAVE_PREFERENCES: `${API_BASE_URL}/api/preferences`,
     
-    // Portfolio endpoints
-    PORTFOLIO: `${API_BASE_URL}/api/portfolio`,
-    PORTFOLIOS: `${API_BASE_URL}/api/portfolios`,
-    PORTFOLIO_BY_USER: (userId: number) => `${API_BASE_URL}/api/portfolios/user/${userId}`,
-    PORTFOLIO_BY_ID: (portfolioId: number) => `${API_BASE_URL}/api/portfolio/${portfolioId}`,
-    PORTFOLIO_STOCK: (portfolioId: number, symbol: string) => `${API_BASE_URL}/api/portfolio/${portfolioId}/${symbol}`,
-    PORTFOLIO_PERFORMANCE: `${API_BASE_URL}/api/portfolio/performance`,
-    PORTFOLIO_INTERVALS: `${API_BASE_URL}/api/portfolio/intervals`,
+    // Watchlist endpoints
+    Watchlist: `${API_BASE_URL}/api/Watchlist`,
+    WatchlistS: `${API_BASE_URL}/api/Watchlists`,
+    Watchlist_BY_USER: (userId: number) => `${API_BASE_URL}/api/Watchlists/user/${userId}`,
+    Watchlist_BY_ID: (WatchlistId: number) => `${API_BASE_URL}/api/Watchlist/${WatchlistId}`,
+    Watchlist_STOCK: (WatchlistId: number, symbol: string) => `${API_BASE_URL}/api/Watchlist/${WatchlistId}/${symbol}`,
+    Watchlist_PERFORMANCE: `${API_BASE_URL}/api/Watchlist/performance`,
+    Watchlist_INTERVALS: `${API_BASE_URL}/api/Watchlist/intervals`,
     
     // Stock endpoints
     VALIDATE_SYMBOL: `${API_BASE_URL}/api/validate-symbol`,
@@ -52,3 +52,4 @@ export const API_CONFIG = {
 }
 
 export default API_CONFIG
+

@@ -191,9 +191,9 @@ class EnhancedStockPriceService {
             if (stockData.provider && !stockData.provider.includes('Simulated')) {
                 await databaseService.recordStockPrice(stockData)
                 
-                // Note: Auto-update of portfolio stocks disabled in multi-portfolio system
-                // Sector/industry data is fetched when stocks are added to portfolios
-                // If needed, implement portfolio-specific updates using portfolio_id
+                // Note: Auto-update of Watchlist stocks disabled in multi-Watchlist system
+                // Sector/industry data is fetched when stocks are added to Watchlists
+                // If needed, implement Watchlist-specific updates using Watchlist_id
             }
         } catch (error) {
             console.error(`Failed to record price for ${stockData.symbol}:`, error)

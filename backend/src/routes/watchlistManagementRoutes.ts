@@ -1,10 +1,10 @@
 import express from 'express'
-import { databaseService, Portfolio } from '../services/databaseService'
+import { databaseService, Watchlist } from '../services/databaseService'
 
 const router = express.Router()
 
-// GET /api/portfolios/user/:userId - Get all portfolios for a user
-router.get('/portfolios/user/:userId', async (req, res) => {
+// GET /api/Watchlists/user/:userId - Get all Watchlists for a user
+router.get('/Watchlists/user/:userId', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -14,25 +14,25 @@ router.get('/portfolios/user/:userId', async (req, res) => {
         }
 
         const userId = parseInt(req.params.userId)
-        const portfolios = await databaseService.getPortfoliosByUserId(userId)
+        const Watchlists = await databaseService.getWatchlistsByUserId(userId)
 
         return res.json({
             success: true,
-            data: portfolios,
-            count: portfolios.length
+            data: Watchlists,
+            count: Watchlists.length
         })
 
     } catch (error) {
-        console.error('Get portfolios API error:', error)
+        console.error('Get Watchlists API error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to fetch portfolios'
+            error: 'Failed to fetch Watchlists'
         })
     }
 })
 
-// GET /api/portfolios/:id - Get portfolio by ID
-router.get('/portfolios/:id', async (req, res) => {
+// GET /api/Watchlists/:id - Get Watchlist by ID
+router.get('/Watchlists/:id', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -41,32 +41,32 @@ router.get('/portfolios/:id', async (req, res) => {
             })
         }
 
-        const portfolioId = parseInt(req.params.id)
-        const portfolio = await databaseService.getPortfolioById(portfolioId)
+        const WatchlistId = parseInt(req.params.id)
+        const Watchlist = await databaseService.getWatchlistById(WatchlistId)
 
-        if (!portfolio) {
+        if (!Watchlist) {
             return res.status(404).json({
                 success: false,
-                error: `Portfolio ${portfolioId} not found`
+                error: `Watchlist ${WatchlistId} not found`
             })
         }
 
         return res.json({
             success: true,
-            data: portfolio
+            data: Watchlist
         })
 
     } catch (error) {
-        console.error('Get portfolio API error:', error)
+        console.error('Get Watchlist API error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to fetch portfolio'
+            error: 'Failed to fetch Watchlist'
         })
     }
 })
 
-// POST /api/portfolios - Create new portfolio
-router.post('/portfolios', async (req, res) => {
+// POST /api/Watchlists - Create new Watchlist
+router.post('/Watchlists', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -85,40 +85,40 @@ router.post('/portfolios', async (req, res) => {
             })
         }
 
-        const newPortfolio: Portfolio = {
+        const newWatchlist: Watchlist = {
             user_id: parseInt(user_id),
             name: name.trim(),
             description: description ? description.trim() : undefined
         }
 
-        const insertId = await databaseService.createPortfolio(newPortfolio)
+        const insertId = await databaseService.createWatchlist(newWatchlist)
 
         return res.status(201).json({
             success: true,
-            message: `Portfolio ${newPortfolio.name} created successfully`,
-            data: { ...newPortfolio, id: insertId }
+            message: `Watchlist ${newWatchlist.name} created successfully`,
+            data: { ...newWatchlist, id: insertId }
         })
 
     } catch (error) {
-        console.error('Create portfolio error:', error)
+        console.error('Create Watchlist error:', error)
 
         const errorMessage = (error as Error).message
         if (errorMessage.includes('Duplicate entry')) {
             return res.status(409).json({
                 success: false,
-                error: `Portfolio ${req.body.name} already exists for this user`
+                error: `Watchlist ${req.body.name} already exists for this user`
             })
         }
 
         return res.status(500).json({
             success: false,
-            error: 'Failed to create portfolio'
+            error: 'Failed to create Watchlist'
         })
     }
 })
 
-// PUT /api/portfolios/:id - Update portfolio
-router.put('/portfolios/:id', async (req, res) => {
+// PUT /api/Watchlists/:id - Update Watchlist
+router.put('/Watchlists/:id', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -127,7 +127,7 @@ router.put('/portfolios/:id', async (req, res) => {
             })
         }
 
-        const portfolioId = parseInt(req.params.id)
+        const WatchlistId = parseInt(req.params.id)
         const updates = req.body
 
         // Remove id and user_id from updates
@@ -141,31 +141,31 @@ router.put('/portfolios/:id', async (req, res) => {
             })
         }
 
-        const updated = await databaseService.updatePortfolio(portfolioId, updates)
+        const updated = await databaseService.updateWatchlist(WatchlistId, updates)
 
         if (!updated) {
             return res.status(404).json({
                 success: false,
-                error: `Portfolio ${portfolioId} not found`
+                error: `Watchlist ${WatchlistId} not found`
             })
         }
 
         return res.json({
             success: true,
-            message: `Portfolio ${portfolioId} updated successfully`
+            message: `Watchlist ${WatchlistId} updated successfully`
         })
 
     } catch (error) {
-        console.error('Update portfolio error:', error)
+        console.error('Update Watchlist error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to update portfolio'
+            error: 'Failed to update Watchlist'
         })
     }
 })
 
-// DELETE /api/portfolios/:id - Delete portfolio
-router.delete('/portfolios/:id', async (req, res) => {
+// DELETE /api/Watchlists/:id - Delete Watchlist
+router.delete('/Watchlists/:id', async (req, res) => {
     try {
         if (!databaseService.isConnected()) {
             return res.status(503).json({
@@ -174,28 +174,29 @@ router.delete('/portfolios/:id', async (req, res) => {
             })
         }
 
-        const portfolioId = parseInt(req.params.id)
-        const deleted = await databaseService.deletePortfolio(portfolioId)
+        const WatchlistId = parseInt(req.params.id)
+        const deleted = await databaseService.deleteWatchlist(WatchlistId)
 
         if (!deleted) {
             return res.status(404).json({
                 success: false,
-                error: `Portfolio ${portfolioId} not found`
+                error: `Watchlist ${WatchlistId} not found`
             })
         }
 
         return res.json({
             success: true,
-            message: `Portfolio ${portfolioId} deleted successfully`
+            message: `Watchlist ${WatchlistId} deleted successfully`
         })
 
     } catch (error) {
-        console.error('Delete portfolio error:', error)
+        console.error('Delete Watchlist error:', error)
         return res.status(500).json({
             success: false,
-            error: 'Failed to delete portfolio'
+            error: 'Failed to delete Watchlist'
         })
     }
 })
 
 export default router
+

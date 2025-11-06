@@ -1,10 +1,20 @@
 # Stock Monitor System - Technical Documentation
 
-## Current Status: November 1, 2025
+## Current Status: November 5, 2025
+
+### Latest Updates - v4.0.0
+
+**Portfolio → Watchlist Refactoring** (November 5, 2025)
+- Complete terminology migration from "Portfolio" to "Watchlist"
+- Database schema updated with new table names
+- All API endpoints refactored
+- User settings system added for color scheme preferences
+- Frontend state management updated
+- PowerShell automation scripts created for start/stop operations
 
 ### Architecture Overview
 
-Full-stack TypeScript application with Express backend, Next.js frontend, MySQL database, and WebSocket real-time communication.
+Full-stack TypeScript application with Express backend, Next.js frontend, MySQL database, and WebSocket real-time communication for stock price monitoring and watchlist management.
 
 ---
 
@@ -47,10 +57,10 @@ Full-stack TypeScript application with Express backend, Next.js frontend, MySQL 
 
 ## Database Schema
 
-### Table: portfolio_stocks
+### Table: Watchlist_stocks
 
 ```sql
-CREATE TABLE portfolio_stocks (
+CREATE TABLE Watchlist_stocks (
     id INT PRIMARY KEY AUTO_INCREMENT,
     symbol VARCHAR(20) NOT NULL UNIQUE,
     description VARCHAR(255),
@@ -83,7 +93,7 @@ CREATE TABLE stock_prices_history (
 );
 ```
 
-**Note**: No foreign key constraint to portfolio_stocks (removed for flexibility)
+**Note**: No foreign key constraint to Watchlist_stocks (removed for flexibility)
 
 ---
 
@@ -96,7 +106,7 @@ backend/
 ├── src/
 │   ├── server.ts                 # Entry point
 │   ├── routes/
-│   │   └── portfolioRoutes.ts    # REST API endpoints
+│   │   └── WatchlistRoutes.ts    # REST API endpoints
 │   ├── services/
 │   │   ├── databaseService.ts    # MySQL operations
 │   │   ├── enhancedStockPriceService.ts  # Main price service
@@ -185,7 +195,7 @@ fetchCompanyProfile(symbol); // Sector/industry (not working)
 **Responsibilities**:
 
 - MySQL connection management
-- Portfolio CRUD operations
+- Watchlist CRUD operations
 - Price history recording
 - Table creation
 
@@ -193,10 +203,10 @@ fetchCompanyProfile(symbol); // Sector/industry (not working)
 
 ```typescript
 initialize(); // Connect and create tables
-getPortfolioStocks(); // Fetch all portfolio stocks
-addPortfolioStock(stock); // Insert new stock
-updatePortfolioStock(id, stock); // Update stock metadata
-deletePortfolioStock(id); // Remove stock
+getWatchlistStocks(); // Fetch all Watchlist stocks
+addWatchlistStock(stock); // Insert new stock
+updateWatchlistStock(id, stock); // Update stock metadata
+deleteWatchlistStock(id); // Remove stock
 recordStockPrice(data); // Insert price history
 ```
 
@@ -206,11 +216,11 @@ recordStockPrice(data); // Insert price history
 
 ## REST API Endpoints
 
-### Portfolio Management
+### Watchlist Management
 
-#### GET /api/portfolio
+#### GET /api/Watchlist
 
-**Purpose**: Retrieve all portfolio stocks from database
+**Purpose**: Retrieve all Watchlist stocks from database
 
 **Response**:
 
@@ -234,9 +244,9 @@ recordStockPrice(data); // Insert price history
 }
 ```
 
-#### POST /api/portfolio
+#### POST /api/Watchlist
 
-**Purpose**: Add new stock to portfolio
+**Purpose**: Add new stock to Watchlist
 
 **Request Body**:
 
@@ -251,7 +261,7 @@ recordStockPrice(data); // Insert price history
 1. Validate symbol with Yahoo Finance
 2. Fetch company profile (sector/industry) - currently failing
 3. Extract metadata
-4. Insert into portfolio_stocks table
+4. Insert into Watchlist_stocks table
 5. Return created stock
 
 **Response** (201):
@@ -259,7 +269,7 @@ recordStockPrice(data); // Insert price history
 ```json
 {
   "success": true,
-  "message": "Stock MSFT validated and added to portfolio",
+  "message": "Stock MSFT validated and added to Watchlist",
   "data": {
     "id": 2,
     "symbol": "MSFT",
@@ -280,7 +290,7 @@ recordStockPrice(data); // Insert price history
 - 409: Duplicate symbol
 - 503: Database not connected
 
-#### PUT /api/portfolio/:id
+#### PUT /api/Watchlist/:id
 
 **Purpose**: Update stock metadata
 
@@ -294,16 +304,16 @@ recordStockPrice(data); // Insert price history
 }
 ```
 
-#### DELETE /api/portfolio/:id
+#### DELETE /api/Watchlist/:id
 
-**Purpose**: Remove stock from portfolio
+**Purpose**: Remove stock from Watchlist
 
 **Response** (200):
 
 ```json
 {
   "success": true,
-  "message": "Stock deleted from portfolio"
+  "message": "Stock deleted from Watchlist"
 }
 ```
 
@@ -537,7 +547,7 @@ frontend/
 
 - WebSocket connection to backend
 - Real-time price updates via WebSocket events
-- Add/remove stocks from portfolio
+- Add/remove stocks from Watchlist
 - Symbol validation before adding
 - Global exchange detection with 25+ exchanges
 - Market column with whiteSpace: 'nowrap' CSS
@@ -557,12 +567,12 @@ const [successMessage, setSuccessMessage] = useState("");
 ```typescript
 const socket = io("http://localhost:4000");
 
-// Subscribe to portfolio stocks
+// Subscribe to Watchlist stocks
 useEffect(() => {
-  if (portfolioSymbols.length > 0) {
-    socket.emit("subscribe_equities", { symbols: portfolioSymbols });
+  if (WatchlistSymbols.length > 0) {
+    socket.emit("subscribe_equities", { symbols: WatchlistSymbols });
   }
-}, [portfolioSymbols]);
+}, [WatchlistSymbols]);
 
 // Listen for updates
 socket.on("bitcoin_update", (data) => setBitcoinData(data));
@@ -674,7 +684,7 @@ const quoteSummary: any = await(yahooFinance.quoteSummary as any)(symbol, {
 
 - `backend/src/services/dataProviders/YahooFinanceRealProvider.ts` (lines 168-186)
 - `backend/src/services/dataProviders/DataProviderManager.ts` (lines 438-464)
-- `backend/src/routes/portfolioRoutes.ts` (lines 80-99)
+- `backend/src/routes/WatchlistRoutes.ts` (lines 80-99)
 
 ### 2. Alpha Vantage Provider Unhealthy
 
@@ -690,9 +700,9 @@ const quoteSummary: any = await(yahooFinance.quoteSummary as any)(symbol, {
 
 **Table**: stock_prices_history
 
-**Change**: Removed foreign key constraint to portfolio_stocks
+**Change**: Removed foreign key constraint to Watchlist_stocks
 
-**Reason**: Allow price history for stocks not in current portfolio
+**Reason**: Allow price history for stocks not in current Watchlist
 
 **Impact**: No referential integrity enforcement
 
@@ -704,7 +714,7 @@ const quoteSummary: any = await(yahooFinance.quoteSummary as any)(symbol, {
 
 - Stock price fetch (cached): <10ms
 - Stock price fetch (uncached): 200-500ms (Yahoo Finance API latency)
-- Database query (portfolio): 10-50ms
+- Database query (Watchlist): 10-50ms
 - WebSocket message delivery: <100ms
 - Symbol validation: 200-500ms (requires API call)
 
@@ -769,8 +779,8 @@ const quoteSummary: any = await(yahooFinance.quoteSummary as any)(symbol, {
 
 **Coverage**:
 
-- Add stock to portfolio ✅
-- Remove stock from portfolio ✅
+- Add stock to Watchlist ✅
+- Remove stock from Watchlist ✅
 - Real-time price updates ✅
 - WebSocket connection ✅
 - Database persistence ✅
@@ -831,7 +841,7 @@ Console output with emoji prefixes:
 🏢 Fetching company profile for AAPL...
 ⚠️ No profile data available for AAPL
 📊 Prepared stock data for AAPL
-📈 Added stock to portfolio: AAPL
+📈 Added stock to Watchlist: AAPL
 ```
 
 ### Log Levels
@@ -870,7 +880,7 @@ Console output with emoji prefixes:
 
 **Risk**: Anyone with network access can:
 
-- View all portfolio stocks
+- View all Watchlist stocks
 - Add/remove stocks
 - Access stock price data
 - Connect to WebSocket
@@ -1040,8 +1050,8 @@ USE mystocks;
 # Show tables
 SHOW TABLES;
 
-# Show portfolio
-SELECT * FROM portfolio_stocks;
+# Show Watchlist
+SELECT * FROM Watchlist_stocks;
 
 # Show recent prices
 SELECT * FROM stock_prices_history ORDER BY recorded_at DESC LIMIT 20;
@@ -1097,7 +1107,7 @@ SELECT * FROM stock_prices_history ORDER BY recorded_at DESC LIMIT 20;
 
 ### Frontend
 
-- [ ] Implement virtual scrolling for large portfolios
+- [ ] Implement virtual scrolling for large Watchlists
 - [ ] Add service worker for offline support
 - [ ] Optimize bundle size
 - [ ] Add image optimization

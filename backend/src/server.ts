@@ -5,8 +5,8 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { setupRoutes } from './routes'
 import ocrRoutes from './routes/ocrRoutes'
-import portfolioRoutes from './routes/portfolioRoutes'
-import portfolioManagementRoutes from './routes/portfolioManagementRoutes'
+import watchlistRoutes from './routes/watchlistRoutes'
+import watchlistManagementRoutes from './routes/watchlistManagementRoutes'
 import preferencesRoutes from './routes/preferencesRoutes'
 import userRoutes from './routes/userRoutes'
 import { databaseService } from './services/databaseService'
@@ -166,10 +166,10 @@ app.post('/api/refresh-stock', async (req, res) => {
 })// OCR routes for image processing
 app.use('/api', ocrRoutes)
 
-// Portfolio routes for database management
+// Watchlist routes for database management
 app.use('/api', userRoutes)
-app.use('/api', portfolioManagementRoutes)
-app.use('/api', portfolioRoutes)
+app.use('/api', watchlistManagementRoutes)
+app.use('/api', watchlistRoutes)
 app.use(preferencesRoutes)
 
 // Routes
@@ -246,14 +246,15 @@ async function startServer() {
         console.log(`📊 WebSocket server ready for real-time updates`)
         console.log(`🔗 Frontend should connect to: http://localhost:${PORT}`)
         console.log(`💰 Enhanced Multi-Provider System: ${USE_REAL_PRICES ? 'REAL PRICES from Yahoo Finance + fallbacks' : 'SIMULATED PRICES'}`)
-        console.log(`🗄️  MySQL Portfolio Management: Enabled`)
+        console.log(`🗄️  MySQL Watchlist Management: Enabled`)
         if (USE_REAL_PRICES) {
             console.log(`📡 Real-time data with automatic provider fallback`)
             console.log(`🔍 Provider health monitoring enabled`)
             console.log(`📈 Enhanced endpoints: /api/provider-status, /api/search-symbols, /api/refresh-stock`)
-            console.log(`💼 Portfolio endpoints: /api/portfolio (GET, POST, PUT, DELETE)`)
+            console.log(`💼 Watchlist endpoints: /api/Watchlist (GET, POST, PUT, DELETE)`)
         }
     })
 }
 
 startServer().catch(console.error)
+

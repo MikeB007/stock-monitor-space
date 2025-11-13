@@ -878,3 +878,10 @@ Next steps:
 Review the document
 Install testing dependencies
 Start with Phase 1 (Setup)
+
+📋 Next Steps (Phase 2)
+Ready to implement:
+
+More DatabaseService tests (watchlists, stocks, users)
+API route handler tests (GET/POST/PUT/DELETE)
+StockPriceService tests (provider failover, caching)

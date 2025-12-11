@@ -281,6 +281,7 @@ interface User {
   id: number
   username: string
   email?: string
+  last_viewed_Watchlist_id?: number
 }
 
 interface Watchlist {
@@ -428,7 +429,7 @@ function StockMonitorComponent() {
 
           // Try to restore last viewed user from preferences
           const browserId = getBrowserId()
-          const prefsResponse = await fetch(API_CONFIG.ENDPOINTS.USER_PREFERENCES(browserId))
+          const prefsResponse = await fetch(API_CONFIG.ENDPOINTS.BROWSER_PREFERENCES(browserId))
 
           if (prefsResponse.ok) {
             const prefsData = await prefsResponse.json()
@@ -928,7 +929,7 @@ function StockMonitorComponent() {
         console.log('✅ All stocks saved to database:', validSymbols)
       } catch (error) {
         console.error('❌ Error saving to database:', error)
-        setValidationError(`Database error: ${error.message}`)
+        setValidationError(`Database error: ${error instanceof Error ? error.message : 'Unknown error'}`)
         return // Don't continue if database save failed
       }
 
@@ -1233,14 +1234,14 @@ function StockMonitorComponent() {
 
       switch (sortColumn) {
         case '24hChange':
-          // Use performance data price change
-          valueA = perfA?.hasData && perfA.priceChange !== null ? perfA.priceChange : -Infinity
-          valueB = perfB?.hasData && perfB.priceChange !== null ? perfB.priceChange : -Infinity
+          // Use equity data price change (current vs previous close)
+          valueA = equityA.change
+          valueB = equityB.change
           break
         case '24hChangePercent':
-          // Use performance data percentage change
-          valueA = perfA?.hasData && perfA.percentChange !== null ? perfA.percentChange : -Infinity
-          valueB = perfB?.hasData && perfB.percentChange !== null ? perfB.percentChange : -Infinity
+          // Use equity data percentage change (current vs previous close)
+          valueA = equityA.changePercent
+          valueB = equityB.changePercent
           break
         case 'price':
           valueA = equityA.price

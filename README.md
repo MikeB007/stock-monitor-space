@@ -49,78 +49,183 @@ stock-monitor-space/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ installed
+- Node.js 18+
+- MySQL Server 8.0+
 - VS Code (recommended)
 
-### Setup
-1. **Open workspace**: Open `stock-monitor-workspace.code-workspace` in VS Code
+---
 
-2. **Install dependencies**: 
-   ```bash
-   # Frontend
-   cd frontend && npm install
-   
-   # Backend
-   cd backend && npm install
+### Step 1 — Set up the MySQL Database
+
+1. **Install MySQL Server 8.0+** and ensure the service is running.
+
+2. **Create the database and schema**:
+   ```sql
+   -- In MySQL shell or MySQL Workbench:
+   CREATE DATABASE mystocks CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   USE mystocks;
    ```
-
-3. **Configure MySQL Database**:
-   - Install MySQL Server 8.0+
-   - Create database: `CREATE DATABASE mystocks;`
-   - Tables will be created automatically on first backend startup
-   - Required tables: `users`, `watchlists`, `watchlist_stocks`, `user_settings`, `user_preferences`
-
-4. **Environment Variables** (optional):
+   Then run the full schema file to create all tables:
    ```bash
-   # Backend (.env)
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=your_password
-   DB_NAME=mystocks
-   
-   # Stock API Keys (optional, Yahoo Finance works without keys)
-   ALPHA_VANTAGE_API_KEY=your_key
-   FMP_API_KEY=your_key
-   TWELVE_DATA_API_KEY=your_key
+   mysql -u root -p mystocks < mySQL-Schema.sql
    ```
+   Alternatively the backend will auto-create tables on first startup — the `CREATE DATABASE` step above is still required.
 
-5. **Build projects**:
-   ```bash
-   # Use VS Code task: Ctrl+Shift+P -> "Tasks: Run Task" -> "Build All"
-   # Or manually:
-   cd frontend && npm run build
-   cd backend && npm run build
-   ```
+3. **Tables created**:
+   | Table | Purpose |
+   |---|---|
+   | `users` | Application user accounts |
+   | `watchlists` | Named watchlists per user |
+   | `stocks` | Canonical stock/asset metadata |
+   | `watchlist_stocks` | Junction table — links watchlists ↔ stocks |
+   | `user_preferences` | Browser-level preferences (last viewed user) |
+   | `stock_prices_history` | Time-series price snapshots |
 
-### Running the Application
+---
 
-#### Option 1: PowerShell Scripts (Recommended)
+### Step 2 — Configure Environment Variables
+
+Create a `.env` file in the `backend/` directory:
+
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=mystocks
+
+# Server
+PORT=4000
+NODE_ENV=development
+
+# CORS (comma-separated origins)
+ALLOWED_ORIGINS=http://localhost:3000
+
+# Stock API Keys (optional — Yahoo Finance works without keys)
+ALPHA_VANTAGE_API_KEY=your_key
+FMP_API_KEY=your_key
+```
+
+Create a `.env.local` file in the `frontend/` directory:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_WS_URL=ws://localhost:4000
+```
+
+---
+
+### Step 3 — Install Dependencies
+
+```bash
+# From the workspace root — installs all packages
+npm run install:all
+```
+
+Or install individually:
+
+```bash
+# Backend
+cd backend
+npm install
+
+# Frontend
+cd ../frontend
+npm install
+```
+
+---
+
+### Step 4 — Run the Application
+
+#### Option 1: npm (Recommended)
+```bash
+# From workspace root — starts backend + frontend concurrently
+npm run dev
+```
+
+#### Option 2: PowerShell Scripts
 ```powershell
-# Start both backend and frontend in separate windows
+# Start both services in separate windows
 .\start.ps1
 
 # Stop all services
 .\stop.ps1
 ```
 
-#### Option 2: VS Code Tasks
-- **Start Full Stack**: `Ctrl+Shift+P` -> "Tasks: Run Task" -> "Start Full Stack"
-- **Start Frontend Only**: "Tasks: Run Task" -> "Start Frontend"
-- **Start Backend Only**: "Tasks: Run Task" -> "Start Backend"
+#### Option 3: VS Code Tasks
+- `Ctrl+Shift+P` → **Tasks: Run Task** → **Start Full Stack**
+- Or run **Start Backend** / **Start Frontend** individually
 
-#### Option 3: Manual Commands
+#### Option 4: Manual (two terminals)
 ```bash
-# Terminal 1: Backend
+# Terminal 1 — Backend
 cd backend && npm run dev
 
-# Terminal 2: Frontend  
+# Terminal 2 — Frontend
 cd frontend && npm run dev
 ```
 
-### Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:4000
-- **WebSocket**: ws://localhost:4000
+---
+
+### Step 5 — Access the Application
+
+| Service | URL |
+|---|---|
+| Frontend dashboard | http://localhost:3000 |
+| Backend REST API | http://localhost:4000 |
+| WebSocket | ws://localhost:4000 |
+| API health check | http://localhost:4000/api/health |
+
+---
+
+## 🖥️ Using the Application
+
+### Dashboard
+- The main dashboard at **http://localhost:3000** shows all stocks in the active watchlist with live prices updated every 5 seconds via WebSocket.
+- Price changes are colour-coded (green = gain, red = loss).
+
+### Managing Watchlists
+1. Select a **User** from the user dropdown (top of the page).
+2. Use the **Watchlist** selector to switch between watchlists for that user.
+3. Click **New Watchlist** to create a named watchlist for the active user.
+
+### Adding Stocks
+1. Open the active watchlist.
+2. Click **Add Stock** and type a ticker symbol (e.g. `AAPL`, `TD.TO`, `BTC-USD`).
+3. The backend validates the symbol against live Yahoo Finance data before adding.
+4. Invalid or unknown symbols are rejected with an error message.
+
+### Removing Stocks
+- Click the **×** / **Remove** button next to any stock in the watchlist.
+
+### Settings
+- Navigate to **http://localhost:3000/settings** to configure the colour scheme:
+  - **Standard** — fixed green/red colouring
+  - **Graded** — intensity scales with the magnitude of the change
+
+### API Usage (direct)
+```bash
+# List all users
+curl http://localhost:4000/api/users
+
+# Get watchlists for user 1
+curl http://localhost:4000/api/Watchlists/user/1
+
+# Validate a symbol
+curl -X POST http://localhost:4000/api/validate-symbol \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"AAPL"}'
+
+# Add a stock to watchlist 1
+curl -X POST http://localhost:4000/api/Watchlist \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"MSFT","Watchlist_id":1}'
+
+# Remove a stock from watchlist 1
+curl -X DELETE http://localhost:4000/api/Watchlist/1/MSFT
+```
 
 ## 🎯 Features
 

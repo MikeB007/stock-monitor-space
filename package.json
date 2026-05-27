@@ -9,8 +9,8 @@
     ],
     "scripts": {
         "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" --names \"backend,frontend\" --prefix-colors \"blue,green\"",
-        "dev:frontend": "cd \"g:\\GIT_REPOSITORY\\REPO\\stock-monitor-space\\frontend\" && npm run dev",
-        "dev:backend": "cd \"g:\\GIT_REPOSITORY\\REPO\\stock-monitor-space\\backend\" && npm run dev",
+        "dev:frontend": "cd frontend && npm run dev",
+        "dev:backend": "cd backend && npm run dev",
         "dev:simple": "powershell -ExecutionPolicy Bypass -File ./scripts/start-dev.ps1",
         "stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1",
         "build": "npm run build:backend && npm run build:frontend",
